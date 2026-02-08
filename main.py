@@ -14,16 +14,43 @@ def main():
     tracker = Tracker()
     manager = TrackManager("sony")
 
+    # FPS tracking
+    fps_window_start = time.time()
+    frames_in_window = 0
+
     while True:
         try:
             camera.open()
             log.info("Camera started")
 
             while True:
+                frame_start = time.time()
+
                 frame_data = camera.read()
+
+                # Detection timing
+                t0 = time.time()
                 detections = detector.detect(frame_data)
+                detect_time = time.time() - t0
+
+                # Tracking timing
+                t1 = time.time()
                 tracks = tracker.update(detections, frame_data.frame)
+                track_time = time.time() - t1
+
                 manager.update(tracks)
+
+                # FPS calculation
+                frames_in_window += 1
+                now = time.time()
+                if now - fps_window_start >= 1.0:
+                    fps = frames_in_window / (now - fps_window_start)
+                    log.info(
+                        f"FPS={fps:.2f} | detections={len(detections)} | "
+                        f"detect_time={detect_time:.3f}s | track_time={track_time:.3f}s"
+                    )
+                    fps_window_start = now
+                    frames_in_window = 0
 
         except Exception as e:
             log.error(f"Pipeline error: {e}. Restarting...")
