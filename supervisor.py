@@ -1,43 +1,67 @@
 import subprocess
 import time
-import yaml
-from pathlib import Path
+import signal
+import sys
 
 
-CAMERA_CONFIG = "configs/cameras.yaml"
-RESTART_DELAY_SEC = 2
+CAMERAS = ["sony", "mac"]
+RESTART_DELAY_SEC = 1.0
 
 
-def load_cameras():
-    path = Path(CAMERA_CONFIG)
-    if not path.exists():
-        raise FileNotFoundError("Camera config not found")
+class CameraProcess:
+    def __init__(self, camera_id: str):
+        self.camera_id = camera_id
+        self.process = None
 
-    with open(path, "r") as f:
-        return list(yaml.safe_load(f).keys())
+    def start(self):
+        self.process = subprocess.Popen(
+            [sys.executable, "camera_worker.py", self.camera_id]
+        )
+
+    def is_alive(self):
+        return self.process and self.process.poll() is None
+
+    def stop(self):
+        if self.is_alive():
+            self.process.send_signal(signal.SIGTERM)
+
+    def kill(self):
+        if self.is_alive():
+            self.process.kill()
 
 
 def main():
-    cameras = load_cameras()
-    processes = {}
+    print("Supervisor starting cameras:", CAMERAS)
 
-    print(f"Supervisor starting cameras: {cameras}")
+    workers = {cid: CameraProcess(cid) for cid in CAMERAS}
 
-    while True:
-        for cam in cameras:
-            proc = processes.get(cam)
+    for w in workers.values():
+        w.start()
 
-            if proc is None or proc.poll() is not None:
-                if proc is not None:
-                    print(f"[SUPERVISOR] Camera {cam} crashed. Restarting...")
+    try:
+        while True:
+            for cid, worker in workers.items():
+                if not worker.is_alive():
+                    print(f"[SUPERVISOR] Camera {cid} crashed. Restarting...")
+                    time.sleep(RESTART_DELAY_SEC)
+                    worker.start()
 
-                processes[cam] = subprocess.Popen(
-                    ["python", "camera_worker.py", cam]
-                )
+            time.sleep(1)
 
-                time.sleep(RESTART_DELAY_SEC)
+    except KeyboardInterrupt:
+        print("\n[SUPERVISOR] Shutdown requested")
 
-        time.sleep(1)
+        for worker in workers.values():
+            worker.stop()
+
+        time.sleep(2)
+
+        for worker in workers.values():
+            if worker.is_alive():
+                print(f"[SUPERVISOR] Forcing kill of {worker.camera_id}")
+                worker.kill()
+
+        print("[SUPERVISOR] Exiting cleanly")
 
 
 if __name__ == "__main__":
