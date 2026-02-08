@@ -1,40 +1,34 @@
 from src.ingestion.camera_ingestion import CameraIngestion
-from src.analysis.person_detection import PersonDetector
-from src.tracking.single_camera_tracker import SingleCameraTracker
+from src.detection.person_detector import PersonDetector
+from src.tracking.tracker import Tracker
 from src.tracking.track_manager import TrackManager
+from src.core.logger import setup_logger
+import time
 
 
 def main():
-    camera = CameraIngestion(camera_id="sony")
+    log = setup_logger()
+
+    camera = CameraIngestion("sony")
     detector = PersonDetector()
-    tracker = SingleCameraTracker()
-    track_manager = TrackManager(camera_id="sony", inactivity_timeout=2.0)
+    tracker = Tracker()
+    manager = TrackManager("sony")
 
-    frame_count = 0
+    while True:
+        try:
+            camera.open()
+            log.info("Camera started")
 
-    try:
-        camera.open()
+            while True:
+                frame_data = camera.read()
+                detections = detector.detect(frame_data)
+                tracks = tracker.update(detections, frame_data.frame)
+                manager.update(tracks)
 
-        while True:
-            data = camera.read()
-            frame = data["frame"]
-            frame_count += 1
-
-            detections = detector.detect(frame)
-            tracks = tracker.update(detections, frame)
-
-            track_manager.update(tracks)
-
-            for t in tracks:
-                print(
-                    f"Frame {frame_count} | Track ID: {t['track_id']} | bbox: {t['bbox']}"
-                )
-
-    except KeyboardInterrupt:
-        print("Stopping...")
-
-    finally:
-        camera.close()
+        except Exception as e:
+            log.error(f"Pipeline error: {e}. Restarting...")
+            camera.close()
+            time.sleep(1)
 
 
 if __name__ == "__main__":
