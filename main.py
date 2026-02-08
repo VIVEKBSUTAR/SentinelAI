@@ -6,6 +6,9 @@ from src.core.logger import setup_logger
 import time
 
 
+DETECTION_INTERVAL = 3  # run detection + embeddings every N frames
+
+
 def main():
     log = setup_logger()
 
@@ -18,6 +21,8 @@ def main():
     fps_window_start = time.time()
     frames_in_window = 0
 
+    last_detections = []
+
     while True:
         try:
             camera.open()
@@ -28,12 +33,17 @@ def main():
 
                 frame_data = camera.read()
 
-                # Detection timing
-                t0 = time.time()
-                detections = detector.detect(frame_data)
-                detect_time = time.time() - t0
+                # Detection (frame skipping)
+                if frame_data.frame_id % DETECTION_INTERVAL == 0:
+                    t0 = time.time()
+                    detections = detector.detect(frame_data)
+                    detect_time = time.time() - t0
+                    last_detections = detections
+                else:
+                    detections = last_detections
+                    detect_time = 0.0
 
-                # Tracking timing
+                # Tracking
                 t1 = time.time()
                 tracks = tracker.update(detections, frame_data.frame)
                 track_time = time.time() - t1
