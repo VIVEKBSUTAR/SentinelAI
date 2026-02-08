@@ -1,74 +1,44 @@
-
-
 import cv2
 import time
 import yaml
 from pathlib import Path
+from src.core.models import FrameData
 
 
 class CameraIngestion:
-    def __init__(
-        self,
-        camera_id: str,
-        config_path: str = "configs/cameras.yaml",
-        width: int = 1280,
-        height: int = 720,
-        fps: int = 30,
-    ):
+    def __init__(self, camera_id, config_path="configs/cameras.yaml"):
         self.camera_id = camera_id
-        self.width = width
-        self.height = height
-        self.fps = fps
-        self.camera_index = self._load_camera_index(config_path)
         self.cap = None
+        self.frame_id = 0
 
-    def _load_camera_index(self, config_path: str) -> int:
-        path = Path(config_path)
-        if not path.exists():
-            raise FileNotFoundError(f"Camera config not found: {path}")
+        with open(Path(config_path), "r") as f:
+            cfg = yaml.safe_load(f)
 
-        with open(path, "r") as f:
-            config = yaml.safe_load(f)
+        self.camera_index = int(cfg[camera_id])
 
-        if self.camera_id not in config:
-            raise ValueError(f"Camera ID '{self.camera_id}' not found in camera config")
-
-        return int(config[self.camera_id])
-
-    def open(self) -> None:
-        if self.cap is not None:
-            return
-
+    def open(self):
         self.cap = cv2.VideoCapture(self.camera_index)
-
         if not self.cap.isOpened():
-            self.cap = None
-            raise RuntimeError(
-                f"Failed to open camera '{self.camera_id}' (index {self.camera_index})"
-            )
+            raise RuntimeError("Camera open failed")
 
-        # Set properties before first read
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-        self.cap.set(cv2.CAP_PROP_FPS, self.fps)
-
-    def read(self) -> dict:
-        if self.cap is None:
-            raise RuntimeError("Camera not opened. Call open() before read().")
-
+    def read(self):
         ret, frame = self.cap.read()
-        if not ret or frame is None:
-            raise RuntimeError("Failed to read frame from camera")
+        if not ret:
+            raise RuntimeError("Frame read failed")
 
-        return {
-            "camera_id": self.camera_id,
-            "timestamp": time.time(),
-            "frame": frame,
-            "height": frame.shape[0],
-            "width": frame.shape[1],
-        }
+        self.frame_id += 1
+        h, w = frame.shape[:2]
 
-    def close(self) -> None:
-        if self.cap is not None:
+        return FrameData(
+            camera_id=self.camera_id,
+            frame_id=self.frame_id,
+            timestamp=time.time(),
+            frame=frame,
+            width=w,
+            height=h,
+        )
+
+    def close(self):
+        if self.cap:
             self.cap.release()
             self.cap = None
