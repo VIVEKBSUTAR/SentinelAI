@@ -29,21 +29,21 @@ def main():
             log.info("Camera started")
 
             while True:
-                frame_start = time.time()
-
                 frame_data = camera.read()
 
-                # Detection (frame skipping)
-                if frame_data.frame_id % DETECTION_INTERVAL == 0:
+                run_detection = frame_data.frame_id % DETECTION_INTERVAL == 0
+
+                # Detection + embedding frames
+                if run_detection:
                     t0 = time.time()
                     detections = detector.detect(frame_data)
                     detect_time = time.time() - t0
                     last_detections = detections
                 else:
-                    detections = last_detections
+                    detections = []
                     detect_time = 0.0
 
-                # Tracking
+                # Tracking (prediction only on skipped frames)
                 t1 = time.time()
                 tracks = tracker.update(detections, frame_data.frame)
                 track_time = time.time() - t1
