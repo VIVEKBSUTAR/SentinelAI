@@ -3,65 +3,67 @@ import time
 import signal
 import sys
 
-
-CAMERAS = ["sony", "mac"]
-RESTART_DELAY_SEC = 1.0
-
-
-class CameraProcess:
-    def __init__(self, camera_id: str):
-        self.camera_id = camera_id
-        self.process = None
-
-    def start(self):
-        self.process = subprocess.Popen(
-            [sys.executable, "camera_worker.py", self.camera_id]
-        )
-
-    def is_alive(self):
-        return self.process and self.process.poll() is None
-
-    def stop(self):
-        if self.is_alive():
-            self.process.send_signal(signal.SIGTERM)
-
-    def kill(self):
-        if self.is_alive():
-            self.process.kill()
+from src.core.heartbeat import HeartbeatMonitor
+from src.core.config import load_config
+from src.core.logger import setup_logger
 
 
 def main():
-    print("Supervisor starting cameras:", CAMERAS)
+    config = load_config()
+    log = setup_logger("supervisor")
 
-    workers = {cid: CameraProcess(cid) for cid in CAMERAS}
+    cameras = list(config["cameras"].keys())
+    processes = {}
+    running = True
 
-    for w in workers.values():
-        w.start()
+    monitor = HeartbeatMonitor(
+        cameras,
+        timeout=10.0,
+        startup_grace=5.0,
+    )
 
-    try:
-        while True:
-            for cid, worker in workers.items():
-                if not worker.is_alive():
-                    print(f"[SUPERVISOR] Camera {cid} crashed. Restarting...")
-                    time.sleep(RESTART_DELAY_SEC)
-                    worker.start()
+    def shutdown_handler(signum, frame):
+        nonlocal running
+        running = False
+        log.info("[SUPERVISOR] Shutdown requested")
 
-            time.sleep(1)
+    signal.signal(signal.SIGINT, shutdown_handler)
+    signal.signal(signal.SIGTERM, shutdown_handler)
 
-    except KeyboardInterrupt:
-        print("\n[SUPERVISOR] Shutdown requested")
+    log.info(f"Supervisor starting cameras: {cameras}")
 
-        for worker in workers.values():
-            worker.stop()
+    for cam in cameras:
+        p = subprocess.Popen(
+            [sys.executable, "camera_worker.py", cam]
+        )
+        processes[cam] = p
+        log.info(f"[SUPERVISOR] Started {cam} pid={p.pid}")
 
-        time.sleep(2)
+    while running:
+        time.sleep(1)
 
-        for worker in workers.values():
-            if worker.is_alive():
-                print(f"[SUPERVISOR] Forcing kill of {worker.camera_id}")
-                worker.kill()
+        for cam in cameras:
+            p = processes[cam]
 
-        print("[SUPERVISOR] Exiting cleanly")
+            if running and (p.poll() is not None or monitor.is_stale(cam)):
+                log.warning(f"[SUPERVISOR] Restarting {cam}")
+
+                p.terminate()
+                p.wait()
+
+                new_p = subprocess.Popen(
+                    [sys.executable, "camera_worker.py", cam]
+                )
+                processes[cam] = new_p
+                monitor.mark_restart(cam)
+
+                log.info(f"[SUPERVISOR] Restarted {cam} pid={new_p.pid}")
+
+    for p in processes.values():
+        p.terminate()
+        p.wait()
+
+    log.info("[SUPERVISOR] Exiting cleanly")
 
 
 if __name__ == "__main__":

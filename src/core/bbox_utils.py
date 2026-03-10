@@ -1,4 +1,4 @@
-def is_valid_bbox(bbox, frame_width, frame_height, max_area_ratio=0.8):
+def is_valid_bbox(bbox, frame_width, frame_height, max_area_ratio=0.95):
     x1, y1, x2, y2 = bbox
 
     if x2 <= x1 or y2 <= y1:

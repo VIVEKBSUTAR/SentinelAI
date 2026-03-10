@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinel AI - Live Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard">
+        <header class="header">
+            <div class="logo">
+                <span class="icon">👁️</span> Sentinel AI
+            </div>
+            <div class="system-status">
+                <div class="status-indicator"></div>
+                <span id="connection-status">Connecting...</span>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <section class="cameras-section">
+                <h2>Cameras</h2>
+                <div id="camera-list" class="camera-grid">
+                    <!-- Cameras will be injected here -->
+                </div>
+            </section>
+
+            <section class="events-section">
+                <div class="section-header">
+                    <h2>Live Events</h2>
+                    <span id="event-count" class="badge">0</span>
+                </div>
+                <div class="event-feed" id="event-feed">
+                    <div class="empty-state">Waiting for events...</div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>

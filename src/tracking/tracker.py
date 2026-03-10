@@ -7,8 +7,8 @@ class Tracker:
     def __init__(self):
         self.ds = DeepSort(
             max_age=45,                 # allow longer gaps between detections
-            n_init=5,                   # require more confirmations
-            max_cosine_distance=0.3,    # looser appearance matching for CPU
+            n_init=2,                   # CONFIRM FASTER (we skip frames)
+            max_cosine_distance=0.4,    # looser appearance matching for CPU
             nn_budget=None,
         )
 

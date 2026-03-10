@@ -24,7 +24,14 @@ class PersonDetector:
                 if int(cls) != 0 or conf < self.conf_thresh:
                     continue
 
-                bbox = tuple(map(int, box))
+                # Clip bounding box to frame dimensions
+                x1, y1, x2, y2 = box
+                x1 = max(0, int(x1))
+                y1 = max(0, int(y1))
+                x2 = min(frame_data.width, int(x2))
+                y2 = min(frame_data.height, int(y2))
+                
+                bbox = (x1, y1, x2, y2)
                 if not is_valid_bbox(bbox, frame_data.width, frame_data.height):
                     continue
 
