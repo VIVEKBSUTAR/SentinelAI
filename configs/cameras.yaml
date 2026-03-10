@@ -1,2 +1,40 @@
-sony: 0
-mac: 1
+cameras:
+  mac:
+    source: 0
+    type: builtin
+  sony:
+    source: 1
+    type: usb
+
+pipeline:
+  target_fps: 12
+  detection_interval:
+    min: 2
+    max: 6
+    default: 3
+  fps_hysteresis: 2.0
+  adjust_cooldown_sec: 3.0
+  event_eval_interval: 3    # evaluate event rules every N frames
+
+detection:
+  model: yolov8n.pt
+  confidence_threshold: 0.3
+
+events:
+  person_count_interval: 5.0    # seconds between count reports
+  loitering_duration: 30.0      # seconds before loitering alert
+  loitering_distance: 100.0     # max displacement in pixels
+  crowd_threshold: 5            # people before crowd alert
+  crowd_cooldown: 30.0          # seconds between crowd alerts
+  speed_threshold: 150.0        # px/s for unusual motion
+  abandoned_max_duration: 10.0  # max seconds person was present
+
+zones:
+  restricted_area:
+    camera: sony
+    polygon: [[100,100], [400,100], [400,400], [100,400]]
+    type: restricted
+  entrance:
+    camera: mac
+    polygon: [[0,0], [640,0], [640,200], [0,200]]
+    type: counting

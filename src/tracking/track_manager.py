@@ -1,4 +1,7 @@
 import time
+from src.core.logger import setup_logger
+
+log = setup_logger("track_manager")
 
 
 class TrackManager:
@@ -23,7 +26,7 @@ class TrackManager:
                     "frames": 1,
                     "bboxes": [t.bbox],
                 }
-                print(f"[TRACK START] id={t.track_id}")
+                log.info(f"[TRACK START] camera={self.camera_id} id={t.track_id}")
 
             else:
                 tr = self.active[t.track_id]
@@ -38,4 +41,7 @@ class TrackManager:
             tr["end_time"] = now
             tr["duration"] = now - tr["start_time"]
             self.completed[tid] = tr
-            print(f"[TRACK END] id={tid} frames={tr['frames']}")
+            log.info(
+                f"[TRACK END] camera={self.camera_id} id={tid} "
+                f"frames={tr['frames']} duration={tr['duration']:.1f}s"
+            )
