@@ -1,11 +1,9 @@
-import asyncio
-import os
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Optional
 from pathlib import Path
+import asyncio
 
 from src.core.logger import setup_logger
 from src.dashboard.routes import router as api_router
@@ -26,10 +24,11 @@ app.add_middleware(
 
 app.include_router(api_router)
 
-# Mount static files
-static_dir = Path(__file__).parent / "static"
-if static_dir.exists():
-    app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
+
+@app.on_event("startup")
+async def on_startup():
+    # Keep a reference to uvicorn's event loop for cross-thread broadcasts.
+    manager.set_loop(asyncio.get_running_loop())
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -44,6 +43,12 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         log.error(f"WebSocket error: {e}")
         manager.disconnect(websocket)
+
+# Mount static files after websocket route registration.
+# A root mount can otherwise shadow /ws and cause websocket handshake failures.
+static_dir = Path(__file__).parent / "static"
+if static_dir.exists():
+    app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
 
 def run_server(host="0.0.0.0", port=8000):
     """Run the FastAPI server."""

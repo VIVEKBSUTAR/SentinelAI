@@ -28,6 +28,8 @@ class CameraIngestion:
         """
         self.cap = cv2.VideoCapture(self.source)
         if self.cap.isOpened():
+            # Reduce capture buffering to lower end-to-end latency.
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             log.info(f"Camera '{self.camera_id}' opened (source={self.source})")
             return
 
@@ -45,6 +47,7 @@ class CameraIngestion:
             if cap.isOpened():
                 self.cap = cap
                 self.source = idx
+                self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
                 log.info(
                     f"Camera '{self.camera_id}' opened on fallback index {idx}"
                 )
