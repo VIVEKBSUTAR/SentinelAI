@@ -40,12 +40,14 @@
                     <rect x="1" y="5" width="15" height="14" rx="2"/>
                 </svg>
                 <span>Cameras</span>
+                <span class="nav-badge" id="nav-cameras-badge">2</span>
             </a>
             <a href="#" class="nav-item" data-section="events" id="nav-events">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
                 </svg>
                 <span>Events</span>
+                <span class="nav-badge alert" id="nav-events-badge">0</span>
             </a>
             <a href="#" class="nav-item" data-section="settings" id="nav-settings">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
@@ -57,7 +59,7 @@
         </nav>
 
         <div class="sidebar-footer">
-            <div class="version-badge">v0.8.0</div>
+            <div class="version-badge">v0.9.0</div>
         </div>
     </aside>
 
@@ -79,10 +81,17 @@
                     <span>Uptime: <strong id="uptime-value">00h 00m 00s</strong></span>
                 </div>
             </div>
+            <div class="topbar-center">
+                <span class="topbar-title" id="topbar-title">DASHBOARD</span>
+            </div>
             <div class="topbar-right">
                 <div class="topbar-stat">
                     <span class="topbar-stat-label">Cameras</span>
                     <span class="topbar-stat-value" id="topbar-cameras">0/0</span>
+                </div>
+                <div class="topbar-stat">
+                    <span class="topbar-stat-label">People</span>
+                    <span class="topbar-stat-value accent" id="topbar-people">0</span>
                 </div>
                 <div class="topbar-stat">
                     <span class="topbar-stat-label">Avg FPS</span>
@@ -91,127 +100,398 @@
             </div>
         </header>
 
-        <!-- Dashboard Grid -->
-        <main class="dashboard-grid">
-            <!-- Live Camera Feed -->
-            <section class="panel feed-panel" id="feed-panel">
-                <div class="panel-header">
-                    <h2 class="panel-title">
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <circle cx="12" cy="12" r="3"/>
-                        </svg>
-                        Live Feed
-                    </h2>
-                    <div class="feed-controls">
-                        <select id="camera-select" class="camera-select">
-                            <!-- Options populated by JS -->
-                        </select>
-                        <div class="live-badge">
-                            <span class="live-dot"></span> LIVE
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: DASHBOARD
+        ══════════════════════════════════════════════════════ -->
+        <main class="section-view active" id="section-dashboard">
+            <div class="dashboard-grid">
+                <!-- Live Camera Feed -->
+                <section class="panel feed-panel" id="feed-panel">
+                    <div class="panel-header">
+                        <h2 class="panel-title">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                            Live Feed
+                        </h2>
+                        <div class="feed-controls">
+                            <select id="camera-select" class="camera-select">
+                                <!-- Options populated by JS -->
+                            </select>
+                            <div class="live-badge">
+                                <span class="live-dot"></span> LIVE
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="feed-viewport" id="feed-viewport">
-                    <img id="camera-feed" class="camera-feed" alt="Camera feed" />
-                    <div class="scan-line"></div>
-                    <div class="feed-overlay">
-                        <div class="feed-overlay-text" id="feed-status">Waiting for feed…</div>
+                    <div class="feed-viewport" id="feed-viewport">
+                        <img id="camera-feed" class="camera-feed" alt="Camera feed" />
+                        <div class="scan-line"></div>
+                        <div class="feed-overlay" id="feed-overlay">
+                            <div class="feed-overlay-text" id="feed-status">Waiting for feed…</div>
+                        </div>
+                        <div class="feed-corner tl"></div>
+                        <div class="feed-corner tr"></div>
+                        <div class="feed-corner bl"></div>
+                        <div class="feed-corner br"></div>
+                        <!-- HUD overlay: track & alert count -->
+                        <div class="feed-hud">
+                            <div class="hud-item green">
+                                <span class="hud-dot green"></span>
+                                <span id="hud-tracks">0</span> tracked
+                            </div>
+                            <div class="hud-item red" id="hud-sus-wrap">
+                                <span class="hud-dot red"></span>
+                                <span id="hud-suspicious">0</span> alerts
+                            </div>
+                        </div>
+                        <!-- Bbox legend -->
+                        <div class="bbox-legend">
+                            <div class="bbox-legend-item"><span class="bbox-swatch green"></span> Tracking</div>
+                            <div class="bbox-legend-item"><span class="bbox-swatch red"></span> Suspicious</div>
+                        </div>
                     </div>
-                    <div class="feed-corner tl"></div>
-                    <div class="feed-corner tr"></div>
-                    <div class="feed-corner bl"></div>
-                    <div class="feed-corner br"></div>
-                </div>
-            </section>
+                </section>
 
-            <!-- Event Timeline -->
-            <section class="panel timeline-panel" id="timeline-panel">
-                <div class="panel-header">
-                    <h2 class="panel-title">
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-                        </svg>
-                        Event Timeline
-                    </h2>
-                    <div class="event-count-badge" id="event-count-badge">0</div>
-                </div>
-                <div class="timeline-feed" id="timeline-feed">
-                    <div class="empty-state" id="timeline-empty">
-                        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3">
-                            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-                        </svg>
-                        <span>Waiting for events…</span>
+                <!-- Event Timeline -->
+                <section class="panel timeline-panel" id="timeline-panel">
+                    <div class="panel-header">
+                        <h2 class="panel-title">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                            </svg>
+                            Event Timeline
+                        </h2>
+                        <div class="timeline-controls">
+                            <div class="event-count-badge" id="event-count-badge">0</div>
+                            <button class="icon-btn" id="btn-ack-all" title="Acknowledge all events">
+                                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
-                </div>
-            </section>
+                    <!-- Quick filter pills inside timeline -->
+                    <div class="timeline-filter-bar">
+                        <button class="filter-pill active" data-severity="all">ALL</button>
+                        <button class="filter-pill" data-severity="critical">CRITICAL</button>
+                        <button class="filter-pill" data-severity="warning">WARNING</button>
+                        <button class="filter-pill" data-severity="info">INFO</button>
+                    </div>
+                    <div class="timeline-feed" id="timeline-feed">
+                        <div class="empty-state" id="timeline-empty">
+                            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3">
+                                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                            </svg>
+                            <span>Waiting for events…</span>
+                        </div>
+                    </div>
+                </section>
 
-            <!-- Stat Cards Row -->
-            <section class="stats-row" id="stats-row">
-                <div class="stat-card" id="stat-cameras">
-                    <div class="stat-icon cameras-icon">
-                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M23 7l-7 5 7 5V7z"/>
-                            <rect x="1" y="5" width="15" height="14" rx="2"/>
-                        </svg>
+                <!-- Stat Cards Row -->
+                <section class="stats-row" id="stats-row">
+                    <div class="stat-card" id="stat-cameras">
+                        <div class="stat-icon cameras-icon">
+                            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M23 7l-7 5 7 5V7z"/>
+                                <rect x="1" y="5" width="15" height="14" rx="2"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="stat-cameras-value">0/0</div>
+                            <div class="stat-label">Active Cameras</div>
+                        </div>
+                        <div class="stat-trend neutral" id="trend-cameras">—</div>
                     </div>
-                    <div class="stat-content">
-                        <div class="stat-value" id="stat-cameras-value">0/0</div>
-                        <div class="stat-label">Active Cameras</div>
-                    </div>
-                    <div class="stat-trend neutral">—</div>
-                </div>
 
-                <div class="stat-card" id="stat-people">
-                    <div class="stat-icon people-icon">
-                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                            <circle cx="9" cy="7" r="4"/>
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                        </svg>
+                    <div class="stat-card" id="stat-people">
+                        <div class="stat-icon people-icon">
+                            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                <circle cx="9" cy="7" r="4"/>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="stat-people-value">0</div>
+                            <div class="stat-label">People Detected</div>
+                        </div>
+                        <div class="stat-trend neutral" id="trend-people">—</div>
                     </div>
-                    <div class="stat-content">
-                        <div class="stat-value" id="stat-people-value">0</div>
-                        <div class="stat-label">People Detected</div>
-                    </div>
-                    <div class="stat-trend neutral">—</div>
-                </div>
 
-                <div class="stat-card" id="stat-events">
-                    <div class="stat-icon events-icon">
-                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                            <line x1="12" y1="9" x2="12" y2="13"/>
-                            <line x1="12" y1="17" x2="12.01" y2="17"/>
-                        </svg>
+                    <div class="stat-card" id="stat-events">
+                        <div class="stat-icon events-icon">
+                            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                <line x1="12" y1="9" x2="12" y2="13"/>
+                                <line x1="12" y1="17" x2="12.01" y2="17"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="stat-events-value">0</div>
+                            <div class="stat-label">Total Events</div>
+                        </div>
+                        <div class="stat-severity-bar">
+                            <div class="sev-segment sev-critical" id="sev-bar-critical" style="width:0%"></div>
+                            <div class="sev-segment sev-warning" id="sev-bar-warning" style="width:0%"></div>
+                            <div class="sev-segment sev-info" id="sev-bar-info" style="width:0%"></div>
+                        </div>
                     </div>
-                    <div class="stat-content">
-                        <div class="stat-value" id="stat-events-value">0</div>
-                        <div class="stat-label">Total Events</div>
-                    </div>
-                    <div class="stat-severity-bar">
-                        <div class="sev-segment sev-critical" id="sev-bar-critical" style="width:0%"></div>
-                        <div class="sev-segment sev-warning" id="sev-bar-warning" style="width:0%"></div>
-                        <div class="sev-segment sev-info" id="sev-bar-info" style="width:0%"></div>
-                    </div>
-                </div>
 
-                <div class="stat-card" id="stat-fps">
-                    <div class="stat-icon fps-icon">
-                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                        </svg>
+                    <div class="stat-card" id="stat-fps">
+                        <div class="stat-icon fps-icon">
+                            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-value"><span id="stat-fps-value">--</span> <small>fps</small></div>
+                            <div class="stat-label">System FPS</div>
+                        </div>
+                        <div class="stat-trend neutral" id="trend-fps">—</div>
                     </div>
-                    <div class="stat-content">
-                        <div class="stat-value"><span id="stat-fps-value">--</span> <small>fps</small></div>
-                        <div class="stat-label">System FPS</div>
-                    </div>
-                    <div class="stat-trend neutral">—</div>
-                </div>
-            </section>
+                </section>
+            </div>
         </main>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: CAMERAS
+        ══════════════════════════════════════════════════════ -->
+        <main class="section-view" id="section-cameras">
+            <div class="cameras-header">
+                <span class="section-label">CAMERA GRID</span>
+                <span class="cameras-subtitle" id="cameras-active-count">Loading…</span>
+            </div>
+            <div class="cameras-grid" id="cameras-grid">
+                <!-- Camera cards injected by JS -->
+            </div>
+        </main>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: EVENTS
+        ══════════════════════════════════════════════════════ -->
+        <main class="section-view" id="section-events">
+            <div class="events-layout">
+                <!-- Filter Sidebar -->
+                <aside class="events-sidebar">
+                    <div class="events-sidebar-header">Filters</div>
+
+                    <div class="filter-group">
+                        <label class="filter-label">Search</label>
+                        <input type="text" class="filter-input" id="ev-search" placeholder="Search events…"/>
+                    </div>
+
+                    <div class="filter-group">
+                        <label class="filter-label">Severity</label>
+                        <div class="filter-checks">
+                            <label class="check-label"><input type="checkbox" value="critical" checked class="ev-sev-check"> <span class="sev-dot critical"></span> Critical</label>
+                            <label class="check-label"><input type="checkbox" value="warning" checked class="ev-sev-check"> <span class="sev-dot warning"></span> Warning</label>
+                            <label class="check-label"><input type="checkbox" value="info" checked class="ev-sev-check"> <span class="sev-dot info"></span> Info</label>
+                        </div>
+                    </div>
+
+                    <div class="filter-group">
+                        <label class="filter-label">Event Type</label>
+                        <div class="filter-checks" id="ev-type-checks">
+                            <!-- Populated by JS from config -->
+                        </div>
+                    </div>
+
+                    <div class="filter-group">
+                        <label class="filter-label">Camera</label>
+                        <select class="filter-select" id="ev-camera-filter">
+                            <option value="">All Cameras</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-actions">
+                        <button class="btn btn-primary" id="btn-apply-filters">Apply</button>
+                        <button class="btn btn-ghost" id="btn-clear-filters">Clear</button>
+                    </div>
+                </aside>
+
+                <!-- Events Table -->
+                <div class="events-main">
+                    <div class="events-toolbar">
+                        <div class="events-toolbar-left">
+                            <span class="events-count-label" id="ev-count-label">0 events</span>
+                        </div>
+                        <div class="events-toolbar-right">
+                            <button class="btn btn-ghost btn-sm" id="btn-ack-all-events">
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                                Ack All
+                            </button>
+                            <button class="btn btn-ghost btn-sm" id="btn-export-csv">
+                                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                Export CSV
+                            </button>
+                        </div>
+                    </div>
+                    <div class="events-table-wrap">
+                        <table class="events-table" id="events-table">
+                            <thead>
+                                <tr>
+                                    <th class="th-sev">SEV</th>
+                                    <th data-sort="event_type">TYPE <span class="sort-arrow">↕</span></th>
+                                    <th data-sort="camera_id">CAM <span class="sort-arrow">↕</span></th>
+                                    <th>DESCRIPTION</th>
+                                    <th data-sort="timestamp">TIME <span class="sort-arrow">↕</span></th>
+                                    <th>ACTIONS</th>
+                                </tr>
+                            </thead>
+                            <tbody id="events-tbody">
+                                <tr class="empty-row"><td colspan="6">No events yet</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="events-pagination" id="events-pagination"></div>
+                </div>
+            </div>
+        </main>
+
+        <!-- ══════════════════════════════════════════════════════
+             SECTION: SETTINGS
+        ══════════════════════════════════════════════════════ -->
+        <main class="section-view" id="section-settings">
+            <div class="settings-grid">
+
+                <!-- System Health -->
+                <section class="panel settings-panel" id="settings-health">
+                    <div class="panel-header">
+                        <h2 class="panel-title">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                            System Health
+                        </h2>
+                        <span class="health-status-badge" id="health-badge">Checking…</span>
+                    </div>
+                    <div class="settings-body">
+                        <div class="health-row">
+                            <span class="health-label">Status</span>
+                            <span class="health-val mono" id="health-status">--</span>
+                        </div>
+                        <div class="health-row">
+                            <span class="health-label">Active Cameras</span>
+                            <span class="health-val mono" id="health-cameras">--</span>
+                        </div>
+                        <div class="health-row">
+                            <span class="health-label">Event Queue</span>
+                            <span class="health-val mono" id="health-queue">--</span>
+                        </div>
+                        <div class="health-row">
+                            <span class="health-label">Uptime</span>
+                            <span class="health-val mono" id="health-uptime">--</span>
+                        </div>
+                        <div class="health-row">
+                            <span class="health-label">Detection Model</span>
+                            <span class="health-val mono">YOLOv8n</span>
+                        </div>
+                        <button class="btn btn-ghost" id="btn-refresh-health" style="margin-top:12px">
+                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                            Refresh Status
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Camera Management -->
+                <section class="panel settings-panel" id="settings-cameras">
+                    <div class="panel-header">
+                        <h2 class="panel-title">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                            Camera Management
+                        </h2>
+                    </div>
+                    <div class="settings-body">
+                        <table class="settings-table" id="settings-cam-table">
+                            <thead>
+                                <tr><th>Camera</th><th>Type</th><th>Source</th><th>Status</th><th>FPS</th><th>Persons</th></tr>
+                            </thead>
+                            <tbody id="settings-cam-tbody">
+                                <tr><td colspan="6" class="loading-cell">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Event Rules -->
+                <section class="panel settings-panel" id="settings-rules">
+                    <div class="panel-header">
+                        <h2 class="panel-title">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            Event Rules
+                        </h2>
+                        <span class="settings-note">Changes apply on next restart</span>
+                    </div>
+                    <div class="settings-body double-col">
+                        <div class="setting-field">
+                            <label class="setting-label">Loitering Duration (s)</label>
+                            <input type="number" id="cfg-loitering" class="setting-input" placeholder="30" min="1" max="300"/>
+                        </div>
+                        <div class="setting-field">
+                            <label class="setting-label">Crowd Threshold (people)</label>
+                            <input type="number" id="cfg-crowd" class="setting-input" placeholder="5" min="2" max="50"/>
+                        </div>
+                        <div class="setting-field">
+                            <label class="setting-label">Speed Threshold (px/s)</label>
+                            <input type="number" id="cfg-speed" class="setting-input" placeholder="150" min="10" max="500"/>
+                        </div>
+                        <div class="setting-field">
+                            <label class="setting-label">Zone Intrusion</label>
+                            <div id="cfg-zones" class="zone-toggles"><!-- Populated by JS --></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- System Actions -->
+                <section class="panel settings-panel" id="settings-actions">
+                    <div class="panel-header">
+                        <h2 class="panel-title">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                            System Actions
+                        </h2>
+                    </div>
+                    <div class="settings-body action-grid">
+                        <button class="btn btn-ghost" id="btn-export-events">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            Export Events CSV
+                        </button>
+                        <button class="btn btn-ghost" id="btn-ack-all-settings">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                            Acknowledge All
+                        </button>
+                        <button class="btn btn-danger" id="btn-clear-events">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                            Clear Event Log
+                        </button>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+
+    </div><!-- /.main-wrapper -->
+
+    <!-- ══════════════════════════════════════════════════════
+         EVENT DETAIL MODAL
+    ══════════════════════════════════════════════════════ -->
+    <div class="modal-backdrop" id="modal-backdrop" aria-hidden="true">
+        <div class="modal" id="event-modal" role="dialog" aria-modal="true">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modal-title">Event Detail</h3>
+                <button class="modal-close" id="modal-close" aria-label="Close modal">✕</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- Injected by JS -->
+            </div>
+            <div class="modal-footer" id="modal-footer">
+                <button class="btn btn-primary" id="modal-btn-ack">Acknowledge</button>
+                <button class="btn btn-ghost" id="modal-btn-close">Close</button>
+            </div>
+        </div>
     </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toast-container"></div>
 
     <script src="app.js"></script>
 </body>

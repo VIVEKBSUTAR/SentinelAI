@@ -7,6 +7,10 @@ from fastapi import WebSocket
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
+        self.loop = None
+
+    def set_loop(self, loop):
+        self.loop = loop
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -24,5 +28,9 @@ class ConnectionManager:
                 await connection.send_text(text_data)
             except Exception:
                 self.disconnect(connection)
+
+    def broadcast_threadsafe(self, message: dict):
+        if self.loop and self.loop.is_running():
+            asyncio.run_coroutine_threadsafe(self.broadcast(message), self.loop)
 
 manager = ConnectionManager()
