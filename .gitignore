@@ -5,3 +5,4 @@ yolov8n.pt
 runs/
 .DS_Store
 runtime/
+.vscode/

@@ -1,5 +1,6 @@
 import sys
 import time
+import cv2
 
 from src.ingestion.camera_ingestion import CameraIngestion
 from src.detection.person_detector import PersonDetector
@@ -13,7 +14,7 @@ from src.events.event_engine import EventEngine
 import threading
 import asyncio
 from src.dashboard.server import run_server
-from src.dashboard.routes import RECENT_EVENTS, PIPELINE_STATUS
+from src.dashboard.routes import RECENT_EVENTS, PIPELINE_STATUS, FRAME_BUFFERS
 from src.dashboard.ws_manager import manager as ws_manager
 
 
@@ -66,6 +67,10 @@ def main():
 
     log.info(f"Starting pipeline for camera '{camera_id}'")
 
+    # JPEG encode params for dashboard feed
+    encode_params = [cv2.IMWRITE_JPEG_QUALITY, 70]
+    frame_push_interval = 3  # push every N frames to reduce CPU overhead
+
     while True:
         try:
             camera.open()
@@ -75,6 +80,14 @@ def main():
                 frame_data = camera.read()
 
                 run_detection = frame_data.frame_id % detection_interval == 0
+
+                # Push frame to dashboard MJPEG buffer (throttled)
+                if frame_data.frame_id % frame_push_interval == 0 and frame_data.frame is not None:
+                    try:
+                        _, jpeg = cv2.imencode('.jpg', frame_data.frame, encode_params)
+                        FRAME_BUFFERS[camera_id] = jpeg.tobytes()
+                    except Exception:
+                        pass
 
                 # Detection & Tracking
                 if run_detection:
@@ -105,7 +118,7 @@ def main():
                             "metadata": e.metadata
                         }
                         RECENT_EVENTS.append(event_dict)
-                        if len(RECENT_EVENTS) > 100:
+                        if len(RECENT_EVENTS) > 200:
                             RECENT_EVENTS.pop(0)
                             
                         # Broadcast immediately via websocket

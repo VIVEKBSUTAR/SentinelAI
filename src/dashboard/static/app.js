@@ -1,172 +1,316 @@
-let ws = null;
-let eventCount = 0;
-let config = {};
+/* ============================================================
+   SENTINEL AI — DASHBOARD CONTROLLER
+   ============================================================ */
+(function () {
+    'use strict';
 
-// DOM Elements
-const statusIndicator = document.querySelector('.status-indicator');
-const statusText = document.getElementById('connection-status');
-const eventFeed = document.getElementById('event-feed');
-const eventCountBadge = document.getElementById('event-count');
-const cameraList = document.getElementById('camera-list');
+    // ─── State ───────────────────────────────────────────────
+    const state = {
+        ws: null,
+        connected: false,
+        reconnectDelay: 1000,
+        reconnectMax: 16000,
+        currentCamera: null,
+        cameras: {},
+        eventCount: 0,
+        previousStats: null,
+        statsInterval: null,
+        uptimeInterval: null,
+        systemUptime: 0,
+    };
 
-// Initialize
-async function init() {
-    await fetchConfig();
-    setupCameras();
-    await fetchRecentEvents();
-    connectWebSocket();
-    
-    // Poll status periodically
-    setInterval(fetchStatus, 2000);
-}
+    // ─── DOM refs ────────────────────────────────────────────
+    const $ = (sel) => document.querySelector(sel);
+    const dom = {
+        statusPill:       $('#status-pill'),
+        statusDot:        $('#status-dot'),
+        connectionLabel:  $('#connection-label'),
+        uptimeValue:      $('#uptime-value'),
+        topbarCameras:    $('#topbar-cameras'),
+        topbarFps:        $('#topbar-fps'),
+        cameraSelect:     $('#camera-select'),
+        cameraFeed:       $('#camera-feed'),
+        feedOverlay:      $('.feed-overlay'),
+        feedStatus:       $('#feed-status'),
+        timelineFeed:     $('#timeline-feed'),
+        timelineEmpty:    $('#timeline-empty'),
+        eventCountBadge:  $('#event-count-badge'),
+        statCamerasVal:   $('#stat-cameras-value'),
+        statPeopleVal:    $('#stat-people-value'),
+        statEventsVal:    $('#stat-events-value'),
+        statFpsVal:       $('#stat-fps-value'),
+        sevBarCritical:   $('#sev-bar-critical'),
+        sevBarWarning:    $('#sev-bar-warning'),
+        sevBarInfo:       $('#sev-bar-info'),
+    };
 
-async function fetchConfig() {
-    try {
-        const res = await fetch('/api/config');
-        config = await res.json();
-    } catch (err) {
-        console.error('Failed to fetch config', err);
+    // ─── Init ────────────────────────────────────────────────
+    async function init() {
+        await loadConfig();
+        await loadInitialEvents();
+        connectWebSocket();
+        startStatsPolling();
+        startUptimeCounter();
     }
-}
 
-function setupCameras() {
-    if (!config.cameras) return;
-    
-    cameraList.innerHTML = '';
-    
-    Object.keys(config.cameras).forEach(camId => {
+    // ─── Configuration loading ───────────────────────────────
+    async function loadConfig() {
+        try {
+            const res = await fetch('/api/config');
+            const config = await res.json();
+            state.cameras = config.cameras || {};
+
+            // Populate camera select
+            dom.cameraSelect.innerHTML = '';
+            Object.keys(state.cameras).forEach((camId, i) => {
+                const opt = document.createElement('option');
+                opt.value = camId;
+                opt.textContent = `CAM: ${camId.toUpperCase()}`;
+                dom.cameraSelect.appendChild(opt);
+                if (i === 0) state.currentCamera = camId;
+            });
+
+            dom.cameraSelect.addEventListener('change', (e) => {
+                state.currentCamera = e.target.value;
+                startCameraFeed();
+            });
+
+            startCameraFeed();
+        } catch (err) {
+            console.error('Failed to load config:', err);
+        }
+    }
+
+    // ─── Camera Feed (MJPEG) ─────────────────────────────────
+    function startCameraFeed() {
+        if (!state.currentCamera) return;
+        // Setting an img src to the MJPEG endpoint makes it stream
+        const feedUrl = `/api/video_feed/${state.currentCamera}`;
+        dom.cameraFeed.src = feedUrl;
+
+        dom.cameraFeed.onload = () => {
+            dom.feedOverlay.classList.add('hidden');
+        };
+        dom.cameraFeed.onerror = () => {
+            dom.feedOverlay.classList.remove('hidden');
+            dom.feedStatus.textContent = 'Feed unavailable';
+        };
+
+        dom.feedStatus.textContent = `Connecting to ${state.currentCamera}…`;
+    }
+
+    // ─── WebSocket ───────────────────────────────────────────
+    function connectWebSocket() {
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const url = `${protocol}//${location.host}/ws`;
+
+        state.ws = new WebSocket(url);
+
+        state.ws.onopen = () => {
+            state.connected = true;
+            state.reconnectDelay = 1000;
+            updateConnectionUI(true);
+        };
+
+        state.ws.onmessage = (event) => {
+            try {
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'event') {
+                    addEventToTimeline(msg.data);
+                }
+            } catch (e) {
+                console.warn('WS parse error:', e);
+            }
+        };
+
+        state.ws.onclose = () => {
+            state.connected = false;
+            updateConnectionUI(false);
+            scheduleReconnect();
+        };
+
+        state.ws.onerror = () => {
+            state.ws.close();
+        };
+    }
+
+    function scheduleReconnect() {
+        setTimeout(() => {
+            connectWebSocket();
+        }, state.reconnectDelay);
+        state.reconnectDelay = Math.min(state.reconnectDelay * 2, state.reconnectMax);
+    }
+
+    function updateConnectionUI(connected) {
+        dom.statusDot.className = 'status-dot' + (connected ? ' connected' : ' disconnected');
+        dom.statusPill.className = 'status-pill' + (connected ? ' connected' : ' disconnected');
+        dom.connectionLabel.textContent = connected ? 'OPERATIONAL' : 'DISCONNECTED';
+    }
+
+    // ─── Events ──────────────────────────────────────────────
+    async function loadInitialEvents() {
+        try {
+            const res = await fetch('/api/events?limit=30');
+            const events = await res.json();
+            // Reverse so newest first in the timeline
+            events.reverse().forEach((evt) => addEventToTimeline(evt, false));
+        } catch (err) {
+            console.error('Failed to load events:', err);
+        }
+    }
+
+    function addEventToTimeline(evt, animate = true) {
+        // Remove empty state
+        if (dom.timelineEmpty) {
+            dom.timelineEmpty.remove();
+        }
+
+        state.eventCount++;
+        dom.eventCountBadge.textContent = state.eventCount;
+
         const card = document.createElement('div');
-        card.className = 'camera-card';
-        card.id = `cam-${camId}`;
+        card.className = `event-card severity-${evt.severity || 'info'}`;
+        if (!animate) card.style.animation = 'none';
+
+        const time = formatTime(evt.timestamp);
+        const eventType = (evt.event_type || 'unknown').replace(/_/g, ' ');
+
         card.innerHTML = `
-            <div class="camera-header">
-                <span class="camera-id">${camId}</span>
-                <span class="camera-status offline" id="status-${camId}">Offline</span>
+            <div class="event-header">
+                <span class="event-type">${escapeHtml(eventType)}</span>
+                <span class="event-time">${time}</span>
             </div>
-            <div class="camera-stats">
-                <div>FPS: <span class="stat-value" id="fps-${camId}">--</span></div>
-                <div>Tracks: <span class="stat-value" id="tracks-${camId}">0</span></div>
+            <div class="event-desc">${escapeHtml(evt.description || '')}</div>
+            <div class="event-meta">
+                <span class="event-meta-tag">📷 ${escapeHtml(evt.camera_id || '--')}</span>
+                ${evt.zone_name ? `<span class="event-meta-tag">📍 ${escapeHtml(evt.zone_name)}</span>` : ''}
+                ${evt.track_ids && evt.track_ids.length ? `<span class="event-meta-tag">🏷 ${evt.track_ids.length} tracks</span>` : ''}
             </div>
         `;
-        cameraList.appendChild(card);
-    });
-}
 
-async function fetchStatus() {
-    try {
-        const res = await fetch('/api/status');
-        const status = await res.json();
-        
-        // Update camera cards based on status
-        Object.entries(status.cameras || {}).forEach(([camId, data]) => {
-            const statusEl = document.getElementById(`status-${camId}`);
-            const fpsEl = document.getElementById(`fps-${camId}`);
-            
-            if (statusEl && data.active) {
-                statusEl.textContent = 'Active';
-                statusEl.className = 'camera-status';
-                if (data.fps) fpsEl.textContent = data.fps.toFixed(1);
-            } else if (statusEl) {
-                statusEl.textContent = 'Offline';
-                statusEl.className = 'camera-status offline';
-                if (fpsEl) fpsEl.textContent = '--';
-            }
+        // Prepend (newest on top)
+        dom.timelineFeed.prepend(card);
+
+        // Trim DOM to prevent unbounded growth
+        const maxCards = 200;
+        while (dom.timelineFeed.children.length > maxCards) {
+            dom.timelineFeed.lastChild.remove();
+        }
+    }
+
+    // ─── Stats Polling ───────────────────────────────────────
+    function startStatsPolling() {
+        fetchStats();
+        state.statsInterval = setInterval(fetchStats, 3000);
+    }
+
+    async function fetchStats() {
+        try {
+            const res = await fetch('/api/stats');
+            const stats = await res.json();
+            updateStatCards(stats);
+            state.systemUptime = stats.uptime_seconds || 0;
+            state.previousStats = stats;
+        } catch (err) {
+            // Silently retry on next interval
+        }
+    }
+
+    function updateStatCards(stats) {
+        // Cameras
+        dom.statCamerasVal.textContent = `${stats.active_cameras}/${stats.total_cameras}`;
+        dom.topbarCameras.textContent = `${stats.active_cameras}/${stats.total_cameras}`;
+
+        // People
+        animateCounter(dom.statPeopleVal, stats.person_count);
+
+        // Events
+        animateCounter(dom.statEventsVal, stats.total_events);
+
+        // FPS
+        dom.statFpsVal.textContent = stats.avg_fps > 0 ? stats.avg_fps.toFixed(1) : '--';
+        dom.topbarFps.textContent = stats.avg_fps > 0 ? stats.avg_fps.toFixed(1) : '--';
+
+        // Severity bar
+        const total = stats.total_events || 1;
+        const sev = stats.severity_counts || {};
+        dom.sevBarCritical.style.width = `${((sev.critical || 0) / total) * 100}%`;
+        dom.sevBarWarning.style.width = `${((sev.warning || 0) / total) * 100}%`;
+        dom.sevBarInfo.style.width = `${((sev.info || 0) / total) * 100}%`;
+
+        // Trends (compare with previous)
+        if (state.previousStats) {
+            updateTrend('stat-people', stats.person_count, state.previousStats.person_count);
+            updateTrend('stat-fps', stats.avg_fps, state.previousStats.avg_fps);
+        }
+    }
+
+    function animateCounter(el, target) {
+        const current = parseInt(el.textContent) || 0;
+        if (current === target) return;
+        el.textContent = target;
+        el.style.transition = 'transform 0.2s, color 0.3s';
+        el.style.transform = 'scale(1.15)';
+        el.style.color = 'var(--accent)';
+        setTimeout(() => {
+            el.style.transform = 'scale(1)';
+            el.style.color = '';
+        }, 250);
+    }
+
+    function updateTrend(cardId, current, previous) {
+        const card = document.getElementById(cardId);
+        if (!card) return;
+        const trend = card.querySelector('.stat-trend');
+        if (!trend) return;
+
+        if (current > previous) {
+            trend.className = 'stat-trend up';
+            trend.textContent = '▲';
+        } else if (current < previous) {
+            trend.className = 'stat-trend down';
+            trend.textContent = '▼';
+        } else {
+            trend.className = 'stat-trend neutral';
+            trend.textContent = '—';
+        }
+    }
+
+    // ─── Uptime Counter ──────────────────────────────────────
+    function startUptimeCounter() {
+        state.uptimeInterval = setInterval(() => {
+            state.systemUptime++;
+            dom.uptimeValue.textContent = formatUptime(state.systemUptime);
+        }, 1000);
+    }
+
+    function formatUptime(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        return `${pad2(h)}h ${pad2(m)}m ${pad2(s)}s`;
+    }
+
+    // ─── Utilities ───────────────────────────────────────────
+    function formatTime(timestamp) {
+        if (!timestamp) return '--:--:--';
+        const d = new Date(timestamp * 1000);
+        return d.toLocaleTimeString('en-GB', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
         });
-    } catch (err) {
-        // Silently fail, it's just polling
     }
-}
 
-async function fetchRecentEvents() {
-    try {
-        const res = await fetch('/api/events?limit=20');
-        const events = await res.json();
-        
-        if (events.length > 0) {
-            eventFeed.innerHTML = '';
-            // Events come oldest first, we prepend so newest is on top
-            events.forEach(addEventToFeed);
-        }
-    } catch (err) {
-        console.error('Failed to fetch recent events', err);
+    function pad2(n) {
+        return String(n).padStart(2, '0');
     }
-}
 
-function connectWebSocket() {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    
-    ws = new WebSocket(wsUrl);
-    
-    ws.onopen = () => {
-        statusIndicator.className = 'status-indicator connected';
-        statusText.textContent = 'Connected (Live)';
-    };
-    
-    ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        
-        if (data.type === 'event') {
-            addEventToFeed(data.data);
-            
-            // Hacky workaround: update track count dynamically from person_count events
-            if (data.data.event_type === 'person_count') {
-                const tracksEl = document.getElementById(`tracks-${data.data.camera_id}`);
-                if (tracksEl) {
-                    tracksEl.textContent = data.data.metadata.count;
-                }
-            }
-        }
-    };
-    
-    ws.onclose = () => {
-        statusIndicator.className = 'status-indicator disconnected';
-        statusText.textContent = 'Disconnected. Reconnecting...';
-        setTimeout(connectWebSocket, 3000);
-    };
-    
-    ws.onerror = (err) => {
-        console.error('WebSocket error', err);
-        ws.close();
-    };
-}
-
-function addEventToFeed(evt) {
-    // Remove empty state if present
-    const emptyState = eventFeed.querySelector('.empty-state');
-    if (emptyState) emptyState.remove();
-    
-    eventCount++;
-    eventCountBadge.textContent = eventCount;
-    
-    const card = document.createElement('div');
-    card.className = `event-card severity-${evt.severity}`;
-    
-    const time = new Date(evt.timestamp * 1000).toLocaleTimeString();
-    
-    let metaHtml = `<span>Cam: ${evt.camera_id}</span>`;
-    if (evt.zone_name) {
-        metaHtml += `<span>Zone: ${evt.zone_name}</span>`;
+    function escapeHtml(str) {
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+        return String(str).replace(/[&<>"']/g, (c) => map[c]);
     }
-    
-    card.innerHTML = `
-        <div class="event-header">
-            <span class="event-type">${evt.event_type.replace('_', ' ')}</span>
-            <span class="event-time">${time}</span>
-        </div>
-        <div class="event-desc">${evt.description}</div>
-        <div class="event-meta">
-            ${metaHtml}
-        </div>
-    `;
-    
-    eventFeed.insertBefore(card, eventFeed.firstChild);
-    
-    // Keep max 100 events in DOM
-    if (eventFeed.children.length > 100) {
-        eventFeed.lastChild.remove();
-    }
-}
 
-// Start
-document.addEventListener('DOMContentLoaded', init);
+    // ─── Launch ──────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', init);
+})();

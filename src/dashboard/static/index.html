@@ -3,41 +3,216 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sentinel AI - Live Dashboard</title>
+    <title>Sentinel AI — Command Center</title>
+    <meta name="description" content="Real-time AI surveillance command center with live camera feeds, event detection, and system analytics.">
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="dashboard">
-        <header class="header">
-            <div class="logo">
-                <span class="icon">👁️</span> Sentinel AI
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <svg class="logo-icon" viewBox="0 0 40 40" width="32" height="32">
+                <circle cx="20" cy="20" r="18" fill="none" stroke="var(--accent)" stroke-width="2" opacity="0.4"/>
+                <circle cx="20" cy="20" r="12" fill="none" stroke="var(--accent)" stroke-width="1.5" opacity="0.6"/>
+                <circle cx="20" cy="20" r="5" fill="var(--accent)"/>
+                <line x1="20" y1="2" x2="20" y2="8" stroke="var(--accent)" stroke-width="1" opacity="0.3"/>
+                <line x1="20" y1="32" x2="20" y2="38" stroke="var(--accent)" stroke-width="1" opacity="0.3"/>
+                <line x1="2" y1="20" x2="8" y2="20" stroke="var(--accent)" stroke-width="1" opacity="0.3"/>
+                <line x1="32" y1="20" x2="38" y2="20" stroke="var(--accent)" stroke-width="1" opacity="0.3"/>
+            </svg>
+            <span class="logo-text">SENTINEL</span>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="#" class="nav-item active" data-section="dashboard" id="nav-dashboard">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="7" height="7" rx="1"/>
+                    <rect x="14" y="3" width="7" height="7" rx="1"/>
+                    <rect x="3" y="14" width="7" height="7" rx="1"/>
+                    <rect x="14" y="14" width="7" height="7" rx="1"/>
+                </svg>
+                <span>Dashboard</span>
+            </a>
+            <a href="#" class="nav-item" data-section="cameras" id="nav-cameras">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 7l-7 5 7 5V7z"/>
+                    <rect x="1" y="5" width="15" height="14" rx="2"/>
+                </svg>
+                <span>Cameras</span>
+            </a>
+            <a href="#" class="nav-item" data-section="events" id="nav-events">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                </svg>
+                <span>Events</span>
+            </a>
+            <a href="#" class="nav-item" data-section="settings" id="nav-settings">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+                <span>Settings</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="version-badge">v0.8.0</div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-wrapper">
+        <!-- Top Status Bar -->
+        <header class="topbar" id="topbar">
+            <div class="topbar-left">
+                <div class="status-pill" id="status-pill">
+                    <div class="status-dot" id="status-dot"></div>
+                    <span id="connection-label">Connecting…</span>
+                </div>
+                <div class="topbar-separator"></div>
+                <div class="uptime-display">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    <span>Uptime: <strong id="uptime-value">00h 00m 00s</strong></span>
+                </div>
             </div>
-            <div class="system-status">
-                <div class="status-indicator"></div>
-                <span id="connection-status">Connecting...</span>
+            <div class="topbar-right">
+                <div class="topbar-stat">
+                    <span class="topbar-stat-label">Cameras</span>
+                    <span class="topbar-stat-value" id="topbar-cameras">0/0</span>
+                </div>
+                <div class="topbar-stat">
+                    <span class="topbar-stat-label">Avg FPS</span>
+                    <span class="topbar-stat-value" id="topbar-fps">--</span>
+                </div>
             </div>
         </header>
 
-        <main class="main-content">
-            <section class="cameras-section">
-                <h2>Cameras</h2>
-                <div id="camera-list" class="camera-grid">
-                    <!-- Cameras will be injected here -->
+        <!-- Dashboard Grid -->
+        <main class="dashboard-grid">
+            <!-- Live Camera Feed -->
+            <section class="panel feed-panel" id="feed-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        Live Feed
+                    </h2>
+                    <div class="feed-controls">
+                        <select id="camera-select" class="camera-select">
+                            <!-- Options populated by JS -->
+                        </select>
+                        <div class="live-badge">
+                            <span class="live-dot"></span> LIVE
+                        </div>
+                    </div>
+                </div>
+                <div class="feed-viewport" id="feed-viewport">
+                    <img id="camera-feed" class="camera-feed" alt="Camera feed" />
+                    <div class="scan-line"></div>
+                    <div class="feed-overlay">
+                        <div class="feed-overlay-text" id="feed-status">Waiting for feed…</div>
+                    </div>
+                    <div class="feed-corner tl"></div>
+                    <div class="feed-corner tr"></div>
+                    <div class="feed-corner bl"></div>
+                    <div class="feed-corner br"></div>
                 </div>
             </section>
 
-            <section class="events-section">
-                <div class="section-header">
-                    <h2>Live Events</h2>
-                    <span id="event-count" class="badge">0</span>
+            <!-- Event Timeline -->
+            <section class="panel timeline-panel" id="timeline-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                        </svg>
+                        Event Timeline
+                    </h2>
+                    <div class="event-count-badge" id="event-count-badge">0</div>
                 </div>
-                <div class="event-feed" id="event-feed">
-                    <div class="empty-state">Waiting for events...</div>
+                <div class="timeline-feed" id="timeline-feed">
+                    <div class="empty-state" id="timeline-empty">
+                        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3">
+                            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                        </svg>
+                        <span>Waiting for events…</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Stat Cards Row -->
+            <section class="stats-row" id="stats-row">
+                <div class="stat-card" id="stat-cameras">
+                    <div class="stat-icon cameras-icon">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M23 7l-7 5 7 5V7z"/>
+                            <rect x="1" y="5" width="15" height="14" rx="2"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="stat-cameras-value">0/0</div>
+                        <div class="stat-label">Active Cameras</div>
+                    </div>
+                    <div class="stat-trend neutral">—</div>
+                </div>
+
+                <div class="stat-card" id="stat-people">
+                    <div class="stat-icon people-icon">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="stat-people-value">0</div>
+                        <div class="stat-label">People Detected</div>
+                    </div>
+                    <div class="stat-trend neutral">—</div>
+                </div>
+
+                <div class="stat-card" id="stat-events">
+                    <div class="stat-icon events-icon">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value" id="stat-events-value">0</div>
+                        <div class="stat-label">Total Events</div>
+                    </div>
+                    <div class="stat-severity-bar">
+                        <div class="sev-segment sev-critical" id="sev-bar-critical" style="width:0%"></div>
+                        <div class="sev-segment sev-warning" id="sev-bar-warning" style="width:0%"></div>
+                        <div class="sev-segment sev-info" id="sev-bar-info" style="width:0%"></div>
+                    </div>
+                </div>
+
+                <div class="stat-card" id="stat-fps">
+                    <div class="stat-icon fps-icon">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value"><span id="stat-fps-value">--</span> <small>fps</small></div>
+                        <div class="stat-label">System FPS</div>
+                    </div>
+                    <div class="stat-trend neutral">—</div>
                 </div>
             </section>
         </main>
     </div>
+
     <script src="app.js"></script>
 </body>
 </html>
