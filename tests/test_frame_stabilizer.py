@@ -59,9 +59,9 @@ class TestFrameStabilizer:
         # Create a sequence of jittered frames (alternating ±5px)
         diffs_raw = []
         diffs_stab = []
-        for i in range(1, 21):
-            dx = 5 * ((-1) ** i)
-            dy = 3 * ((-1) ** i)
+        for frame_idx in range(1, 21):
+            dx = 5 * ((-1) ** frame_idx)
+            dy = 3 * ((-1) ** frame_idx)
             jittered = _shift_frame(base, dx, dy)
             stabilized = stab.stabilize(jittered)
 

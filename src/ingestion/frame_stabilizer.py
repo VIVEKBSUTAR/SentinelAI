@@ -179,10 +179,15 @@ class FrameStabilizer:
     def _apply_transform(frame, dx, dy, da):
         """Apply a rigid correction to *frame*."""
         h, w = frame.shape[:2]
+        # Rotate around the frame centre to avoid translation artefacts.
+        cx, cy = w / 2.0, h / 2.0
         cos_a = np.cos(da)
         sin_a = np.sin(da)
+        # Standard rotation-about-centre matrix with added translation.
+        tx = (1 - cos_a) * cx + sin_a * cy + dx
+        ty = -sin_a * cx + (1 - cos_a) * cy + dy
         mat = np.array([
-            [cos_a, -sin_a, dx],
-            [sin_a,  cos_a, dy],
+            [cos_a, -sin_a, tx],
+            [sin_a,  cos_a, ty],
         ], dtype=np.float64)
         return cv2.warpAffine(frame, mat, (w, h), borderMode=cv2.BORDER_REPLICATE)
