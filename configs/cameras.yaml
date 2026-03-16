@@ -15,6 +15,9 @@ pipeline:
   fps_hysteresis: 2.0
   adjust_cooldown_sec: 3.0
   event_eval_interval: 3    # evaluate event rules every N frames
+  stabilization:
+    enabled: true
+    smoothing_window: 30     # frames over which to smooth camera trajectory
 
 detection:
   model: yolov8n.pt

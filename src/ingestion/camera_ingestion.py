@@ -5,6 +5,7 @@ import cv2
 from src.core.models import FrameData
 from src.core.config import load_config, get_camera_source
 from src.core.logger import setup_logger
+from src.ingestion.frame_stabilizer import FrameStabilizer
 
 log = setup_logger("ingestion")
 
@@ -18,6 +19,18 @@ class CameraIngestion:
         self.source = get_camera_source(self.config, camera_id)
         self.cap = None
         self.frame_count = 0
+
+        # Optional frame stabilization
+        stab_cfg = self.config.get("pipeline", {}).get("stabilization", {})
+        if stab_cfg.get("enabled", False):
+            window = stab_cfg.get("smoothing_window", 30)
+            self.stabilizer = FrameStabilizer(smoothing_window=window)
+            log.info(
+                f"Frame stabilization enabled for '{camera_id}' "
+                f"(window={window})"
+            )
+        else:
+            self.stabilizer = None
 
     def open(self):
         """Open the camera device for reading.
@@ -68,6 +81,9 @@ class CameraIngestion:
         if not ret:
             raise RuntimeError(f"Failed to read frame from camera '{self.camera_id}'")
 
+        if self.stabilizer is not None:
+            frame = self.stabilizer.stabilize(frame)
+
         self.frame_count += 1
         h, w = frame.shape[:2]
 
@@ -86,6 +102,8 @@ class CameraIngestion:
             self.cap.release()
             self.cap = None
             log.info(f"Camera '{self.camera_id}' closed")
+        if self.stabilizer is not None:
+            self.stabilizer.reset()
 
     def is_open(self):
         """Check if the camera is currently open."""
