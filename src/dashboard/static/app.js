@@ -159,7 +159,7 @@
         img.onload = () => overlay.classList.add('hidden');
         img.onerror = () => {
             overlay.classList.remove('hidden');
-            status.textContent = 'Feed unavailable – pipeline may not be running';
+            status.textContent = 'Feed unavailable - start full pipeline with: python main.py';
         };
 
         // Append timestamp to bust any cached 404

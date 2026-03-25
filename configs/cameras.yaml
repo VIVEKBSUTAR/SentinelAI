@@ -2,9 +2,11 @@ cameras:
   mac:
     source: 0
     type: builtin
+    enabled: true
   sony:
     source: 1
     type: usb
+    enabled: false
 
 pipeline:
   target_fps: 12

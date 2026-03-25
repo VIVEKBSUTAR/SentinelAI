@@ -40,3 +40,16 @@ def get_camera_source(config, camera_id):
     if camera_id not in config["cameras"]:
         raise ValueError(f"Unknown camera id: {camera_id}")
     return config["cameras"][camera_id]["source"]
+
+
+def get_enabled_camera_ids(config):
+    """Return camera IDs that are enabled in config.
+
+    Cameras are enabled by default unless `enabled: false` is set.
+    """
+    cameras = config.get("cameras", {})
+    return [
+        cam_id
+        for cam_id, cam_cfg in cameras.items()
+        if cam_cfg.get("enabled", True)
+    ]

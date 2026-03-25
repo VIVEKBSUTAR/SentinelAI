@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from src.core.config import load_config
+from src.core.config import load_config, get_enabled_camera_ids
 from src.dashboard.state import dashboard_state
 
 router = APIRouter()
@@ -15,7 +15,14 @@ router = APIRouter()
 @router.get("/api/config")
 async def get_config():
     """Return the currently loaded configuration (camera list, zones)."""
-    return load_config()
+    config = load_config()
+    enabled_ids = set(get_enabled_camera_ids(config))
+    config["cameras"] = {
+        cam_id: cam_cfg
+        for cam_id, cam_cfg in config.get("cameras", {}).items()
+        if cam_id in enabled_ids
+    }
+    return config
 
 
 # ── Events ────────────────────────────────────────────────────────────────────
@@ -90,9 +97,12 @@ async def clear_events():
 async def get_cameras():
     """Return configured cameras merged with live runtime status."""
     config = load_config()
+    enabled_ids = set(get_enabled_camera_ids(config))
     status = dashboard_state.get_pipeline_status()
     cameras = []
     for cam_id, cam_cfg in config.get("cameras", {}).items():
+        if cam_id not in enabled_ids:
+            continue
         runtime = status.get("cameras", {}).get(cam_id, {})
         cameras.append({
             "id": cam_id,
@@ -118,7 +128,8 @@ async def get_status():
 async def get_stats():
     """Aggregated statistics for the stat cards."""
     config = load_config()
-    total_cameras = len(config.get("cameras", {}))
+    enabled_ids = set(get_enabled_camera_ids(config))
+    total_cameras = len(enabled_ids)
     status = dashboard_state.get_pipeline_status()
     events = dashboard_state.get_all_events()
     active_cameras = sum(
@@ -199,6 +210,18 @@ def generate_mjpeg(camera_id: str):
 @router.get("/api/video_feed/{camera_id}")
 async def video_feed(camera_id: str):
     """MJPEG stream for a specific camera."""
+    # Fail fast if there is no available frame yet so the UI can show an explicit error.
+    deadline = time.time() + 2.0
+    while time.time() < deadline:
+        if dashboard_state.get_frame(camera_id) is not None:
+            break
+        time.sleep(0.05)
+    else:
+        raise HTTPException(
+            status_code=503,
+            detail=f"No frames available for camera '{camera_id}'. Ensure pipeline is running.",
+        )
+
     return StreamingResponse(
         generate_mjpeg(camera_id),
         media_type="multipart/x-mixed-replace; boundary=frame",

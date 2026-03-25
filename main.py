@@ -6,7 +6,7 @@ from src.ingestion.camera_ingestion import CameraIngestion
 from src.detection.person_detector import PersonDetector
 from src.tracking.tracker import Tracker
 from src.tracking.track_manager import TrackManager
-from src.core.config import load_config
+from src.core.config import load_config, get_enabled_camera_ids
 from src.core.logger import setup_logger
 from src.events.event_engine import EventEngine
 from src.dashboard.server import run_server
@@ -210,7 +210,9 @@ def main():
     config = load_config()
     log = setup_logger("main")
 
-    cameras = list(config["cameras"].keys())
+    cameras = get_enabled_camera_ids(config)
+    if not cameras:
+        log.warning("No enabled cameras in config. Dashboard will run without pipelines.")
     log.info(f"Starting SentinelAI with cameras: {cameras}")
 
     # Start dashboard server in background thread

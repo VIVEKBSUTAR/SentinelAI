@@ -4,7 +4,7 @@ import signal
 import sys
 
 from src.core.heartbeat import HeartbeatMonitor
-from src.core.config import load_config
+from src.core.config import load_config, get_enabled_camera_ids
 from src.core.logger import setup_logger
 
 
@@ -12,7 +12,10 @@ def main():
     config = load_config()
     log = setup_logger("supervisor")
 
-    cameras = list(config["cameras"].keys())
+    cameras = get_enabled_camera_ids(config)
+    if not cameras:
+        log.warning("No enabled cameras in config. Nothing to supervise.")
+        return
     processes = {}
     running = True
 
