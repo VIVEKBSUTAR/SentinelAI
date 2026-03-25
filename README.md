@@ -1,103 +1,259 @@
 # SentinelAI
 
-SentinelAI is an intelligent surveillance system built to reduce the need for humans to continuously watch camera feeds. It converts raw video streams into actionable events, so operators focus on what matters instead of monitoring everything all the time.
+SentinelAI is a real-time, event-driven surveillance pipeline that turns live camera streams into structured incidents and dashboard telemetry.
 
-## Why SentinelAI
+It is designed to reduce continuous manual monitoring by combining:
 
-Modern campuses, factories, warehouses, transport hubs, and public spaces use large camera networks. The bottleneck is no longer camera availability, it is human attention.
+- Camera ingestion
+- Person detection and tracking
+- Rule-based event interpretation
+- Live dashboard streaming and APIs
 
-Common operational challenges:
+## Latest Development (March 2026)
 
-- Real-time incidents are missed because operators must watch many screens at once.
-- Response times are delayed due to manual monitoring fatigue.
-- Investigations take too long because footage is reviewed manually after incidents.
-- Organizations invest in camera hardware but still depend on human vigilance as the detection layer.
+Recent updates focused on runtime reliability, camera handling, and dashboard clarity:
 
-In short, cameras capture data, but data alone is not intelligence.
+- Added per-camera enable/disable support in `configs/cameras.yaml` using `enabled: true|false`.
+- Runtime now starts only enabled cameras in `main.py` and `supervisor.py`.
+- Dashboard config and camera APIs now expose only enabled cameras.
+- Video feed endpoint now fails fast with a clear 503 when no frame is available instead of hanging indefinitely.
+- Camera ingestion improved for macOS:
+	- AVFoundation-first open strategy
+	- Warmup read validation before accepting a camera
+	- Camera source claim locking to avoid duplicate index conflicts across workers
 
-## What SentinelAI Does
+## Architecture Overview
 
-SentinelAI transforms passive camera streams into active monitoring signals.
+SentinelAI pipeline flow:
 
-The system:
+1. Ingestion
+2. Detection
+3. Tracking
+4. Event Engine
+5. Dashboard + API + WebSocket
 
-1. Ingests camera streams.
-2. Processes frames through computer vision.
-3. Detects and tracks entities across time.
-4. Interprets scene behavior using event logic.
-5. Emits structured alerts, logs, and dashboard telemetry.
+Key modules:
 
-Instead of reviewing endless footage, operators receive prioritized events and can respond faster.
+- Ingestion: `src/ingestion/camera_ingestion.py`
+- Detection: `src/detection/person_detector.py`
+- Tracking: `src/tracking/tracker.py`, `src/tracking/track_manager.py`
+- Events: `src/events/event_engine.py`, `src/events/`
+- Dashboard server: `src/dashboard/server.py`
+- API routes: `src/dashboard/routes.py`
+- WebSocket manager: `src/dashboard/ws_manager.py`
+- Shared config: `src/core/config.py`, `configs/cameras.yaml`
 
-## Pipeline Overview
+Runtime entrypoints:
 
-SentinelAI uses a modular, production-oriented pipeline:
+- Full system (recommended): `main.py`
+- Camera worker: `camera_worker.py`
+- Supervisor mode: `supervisor.py`
+- Dashboard-only server: `python -m src.dashboard.server`
 
-1. Input Layer
-	Captures frames reliably from configured cameras.
+## Features
 
-2. Preprocessing Layer
-	Normalizes frame input for downstream components.
+- Multi-camera config via YAML
+- Real-time person detection using YOLOv8
+- Multi-object tracking and track lifecycle management
+- Event rules:
+	- person_count
+	- loitering
+	- zone_intrusion
+	- crowd_formation
+	- unusual_motion
+	- abandoned_object
+- Live MJPEG video feed endpoint per camera
+- Live event/status updates over WebSocket
+- Dashboard views for camera health, feed, and event timeline
+- In-memory event acknowledgements and stats APIs
 
-3. Analysis Layer
-	Runs detection and tracking to understand scene state over time.
+## Project Structure
 
-4. Decision Layer
-	Applies event rules to convert model output into meaningful incidents while reducing noise.
+Core top-level files:
 
-5. Output Layer
-	Produces event logs, alerts, status metrics, and dashboard-friendly APIs.
+- `main.py`
+- `camera_worker.py`
+- `supervisor.py`
+- `requirements.txt`
+- `configs/cameras.yaml`
 
-## Current Architecture In This Repository
+Source packages:
 
-- Ingestion: [src/ingestion/camera_ingestion.py](src/ingestion/camera_ingestion.py)
-- Detection: [src/detection/person_detector.py](src/detection/person_detector.py)
-- Tracking: [src/tracking/tracker.py](src/tracking/tracker.py), [src/tracking/track_manager.py](src/tracking/track_manager.py)
-- Event Engine and Rules: [src/events/event_engine.py](src/events/event_engine.py), [src/events](src/events)
-- Dashboard/API: [src/dashboard/server.py](src/dashboard/server.py), [src/dashboard/routes.py](src/dashboard/routes.py), [src/dashboard/ws_manager.py](src/dashboard/ws_manager.py)
-- Core models/config/heartbeat: [src/core](src/core)
-- Runtime modes: [main.py](main.py), [camera_worker.py](camera_worker.py), [supervisor.py](supervisor.py)
+- `src/ingestion/`
+- `src/detection/`
+- `src/tracking/`
+- `src/events/`
+- `src/dashboard/`
+- `src/core/`
 
-## Value Proposition
+Tests:
 
-For security teams:
+- `tests/`
 
-- Reduced cognitive load in monitoring rooms.
-- Faster incident response through event-driven visibility.
-- Better use of existing surveillance infrastructure.
+## Prerequisites
 
-For engineering and research:
+- Python 3.10+ (3.11 recommended)
+- macOS/Linux/Windows with OpenCV-compatible camera access
+- Webcam(s) connected and permitted by OS privacy settings
 
-- A practical example of AI deployed as an operational system, not just a model demo.
-- Modular architecture that supports extension and testing.
+Notes:
 
-## Engineering Principles
+- On macOS, ensure Terminal/VS Code has Camera permission.
+- YOLO model file `yolov8n.pt` is expected in repo root by default.
 
-SentinelAI is being built with a production mindset:
+## Installation
 
-- Modular components with clear responsibilities.
-- Config-driven behavior via YAML.
-- Structured logging and status reporting.
-- Reliability-oriented process management (worker + supervisor model).
-- Maintainable repository structure and test coverage foundation.
+From repository root:
 
-## Innovation Focus
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+pip install fastapi uvicorn
+```
 
-Many surveillance demos stop at object detection on a sample clip. SentinelAI focuses on end-to-end system design: ingestion, analysis, tracking, decision logic, event output, and operational reliability.
+Why extra install for FastAPI/Uvicorn:
 
-This frames surveillance as a systems engineering problem, not only a machine learning problem.
+- The dashboard server depends on FastAPI/Uvicorn.
+- If your environment already has them, the extra command is harmless.
 
-## Expected Impact
+## Configuration
 
-Short term:
+Main config file: `configs/cameras.yaml`
 
-- Demonstrates practical reduction of human monitoring load.
-- Provides a robust base for iterative capability growth.
+Camera section example:
 
-Long term:
+```yaml
+cameras:
+	mac:
+		source: 0
+		type: builtin
+		enabled: true
+	sony:
+		source: 1
+		type: usb
+		enabled: false
+```
 
-- Enables deployment patterns suitable for smart cities, industrial safety, and large institutions where continuous observation is needed but human attention is limited.
+Important fields:
 
-## Project Stage
+- `source`: camera index used by OpenCV
+- `enabled`: whether this camera should be started by runtime
+- `pipeline.detection_interval`: dynamic detection cadence limits
+- `events.*`: thresholds/cooldowns for event rules
+- `zones.*`: polygons used by zone-based rules
 
-SentinelAI is currently in active development. The focus is on stabilizing architecture and workflow first, so future features can be integrated cleanly and reliably.
+## How To Run
+
+### 1. Full system (camera pipelines + dashboard)
+
+Use this for actual feed + events:
+
+```bash
+python main.py
+```
+
+Open dashboard:
+
+`http://127.0.0.1:8000`
+
+### 2. Dashboard-only mode
+
+Useful for frontend/API checks only:
+
+```bash
+python -m src.dashboard.server
+```
+
+Important:
+
+- Dashboard-only mode does **not** run camera pipelines.
+- You will not get live frames/events unless `main.py` is running.
+
+### 3. Supervisor mode
+
+Starts one worker per enabled camera and restarts stale/dead workers:
+
+```bash
+python supervisor.py
+```
+
+## How To Verify It Is Working
+
+After starting `python main.py`:
+
+1. Dashboard top bar should show at least one active camera.
+2. Camera feed should leave "Connecting" state.
+3. Event timeline should start receiving periodic `person_count` entries.
+
+Quick API checks:
+
+- `GET /api/health`
+- `GET /api/stats`
+- `GET /api/cameras`
+- `GET /api/events?limit=20`
+
+## API Summary
+
+Configuration and health:
+
+- `GET /api/config`
+- `GET /api/health`
+- `GET /api/status`
+- `GET /api/stats`
+
+Cameras and feed:
+
+- `GET /api/cameras`
+- `GET /api/video_feed/{camera_id}`
+
+Events:
+
+- `GET /api/events`
+- `GET /api/events/timeline`
+- `GET /api/events/{event_id}`
+- `POST /api/events/{event_id}/acknowledge`
+- `POST /api/events/acknowledge_all`
+- `DELETE /api/events`
+
+WebSocket:
+
+- `WS /ws`
+
+## Troubleshooting
+
+### Dashboard shows "Connecting" forever
+
+- Ensure you started `python main.py` (not only dashboard server).
+- Check camera enabled flags in `configs/cameras.yaml`.
+- Confirm `/api/cameras` reports active camera(s).
+
+### Camera LED is on but no feed
+
+- Another process may be holding the device.
+- Camera index may be wrong (`source` in config).
+- macOS privacy permissions may block frame access.
+
+### Repeated camera restart logs
+
+- Disable unavailable devices using `enabled: false`.
+- Keep only currently connected/valid camera entries enabled.
+
+### Port 8000 already in use
+
+- Stop the existing process, then restart SentinelAI.
+
+## Testing
+
+Run tests from repository root:
+
+```bash
+pytest -q
+```
+
+## Development Notes
+
+- This project is in active development.
+- Current focus is runtime stability, observability, and clean operator UX.
+- Next improvements can include persistent event storage, auth, and deployment packaging.
