@@ -1,3 +1,8 @@
+# NOTE: For CPU-only mode, after installing requirements run:
+#   python export_onnx.py
+# to generate yolov8n.onnx before starting the system.
+# All CPU optimizations are documented with "# CPU optimization" comments.
+# To restore GPU mode: revert configs/cameras.yaml values marked with "Restore when GPU available"
 opencv-python>=4.8
 ultralytics>=8.0
 deep-sort-realtime>=1.3

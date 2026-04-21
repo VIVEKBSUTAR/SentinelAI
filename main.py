@@ -2,6 +2,12 @@ import time
 import cv2
 import threading
 
+# CPU optimization: limit OpenCV internal threads to prevent contention
+# across multiple camera threads. Remove or increase when GPU is available.
+cv2.setNumThreads(2)
+import torch
+torch.set_num_threads(2)  # CPU optimization: limit PyTorch threads, same as OpenCV
+
 from src.ingestion.camera_ingestion import CameraIngestion
 from src.detection.person_detector import PersonDetector
 from src.tracking.tracker import Tracker
@@ -69,7 +75,7 @@ def run_pipeline(camera_id: str, config: dict):
     suspicious_expiry: dict = {}      # track_id → expiry timestamp
     SUSPICIOUS_TTL = 15.0             # seconds a track stays red after last alert
 
-    encode_params = [cv2.IMWRITE_JPEG_QUALITY, 60]
+    encode_params = [cv2.IMWRITE_JPEG_QUALITY, 45]  # CPU optimization: reduced from 60. Restore to 60 when GPU available
 
     dashboard_state.set_camera_status(camera_id, active=True, fps=0.0)
     log.info(f"Pipeline starting for camera '{camera_id}'")
@@ -88,7 +94,41 @@ def run_pipeline(camera_id: str, config: dict):
                 # ── Detection & Tracking ──────────────────────────────────────
                 if run_detection:
                     t0 = time.time()
-                    detections = detector.detect(frame_data)
+                    # CPU optimization: downscale frame before detection to reduce inference cost.
+                    # YOLO inference time scales roughly with resolution squared.
+                    # Restore DETECT_WIDTH to match full camera resolution when GPU available.
+                    DETECT_WIDTH = 416
+                    if frame_data.width > DETECT_WIDTH:
+                        scale = DETECT_WIDTH / frame_data.width
+                        detect_h = int(frame_data.height * scale)
+                        small_frame = cv2.resize(frame_data.frame, (DETECT_WIDTH, detect_h))
+                        from src.core.models import FrameData as _FrameData
+                        small_frame_data = _FrameData(
+                            camera_id=frame_data.camera_id,
+                            frame_id=frame_data.frame_id,
+                            timestamp=frame_data.timestamp,
+                            frame=small_frame,
+                            width=DETECT_WIDTH,
+                            height=detect_h
+                        )
+                        raw_detections = detector.detect(small_frame_data)
+                        # Scale bounding boxes back up to original frame dimensions
+                        scale_x = frame_data.width / DETECT_WIDTH
+                        scale_y = frame_data.height / detect_h
+                        scaled_detections = []
+                        for det in raw_detections:
+                            x1, y1, x2, y2 = det.bbox
+                            scaled_bbox = (
+                                int(x1 * scale_x),
+                                int(y1 * scale_y),
+                                int(x2 * scale_x),
+                                int(y2 * scale_y)
+                            )
+                            from dataclasses import replace
+                            scaled_detections.append(replace(det, bbox=scaled_bbox))
+                        detections = scaled_detections
+                    else:
+                        detections = detector.detect(frame_data)
                     detect_time = time.time() - t0
 
                     t1 = time.time()
@@ -131,7 +171,7 @@ def run_pipeline(camera_id: str, config: dict):
                 if frame_data.frame is not None:
                     try:
                         h, w = frame_data.frame.shape[:2]
-                        target_w = 960
+                        target_w = 640  # CPU optimization: reduced from 960. Restore to 960 when GPU available
                         if w > target_w:
                             target_h = int(h * (target_w / w))
                             vis = cv2.resize(frame_data.frame, (target_w, target_h))
@@ -153,7 +193,7 @@ def run_pipeline(camera_id: str, config: dict):
                             scaled_tracks = last_tracks
 
                         vis = _draw_bboxes(vis, scaled_tracks, suspicious_ids)
-                        ok, jpeg = cv2.imencode('.jpg', vis, encode_params)
+                        ok, jpeg = cv2.imencode('.jpg', vis, encode_params)  # CPU: quality reduced from 60 to 45. Restore to 60 when GPU available
                         if ok:
                             dashboard_state.set_frame(camera_id, jpeg.tobytes())
                     except Exception as enc_err:

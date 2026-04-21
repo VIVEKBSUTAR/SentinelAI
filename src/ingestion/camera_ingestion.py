@@ -25,6 +25,18 @@ class CameraIngestion:
         self.frame_count = 0
         self._claimed_source = None
 
+        # Optional frame stabilization
+        stab_cfg = self.config.get("pipeline", {}).get("stabilization", {})
+        if stab_cfg.get("enabled", False):
+            window = stab_cfg.get("smoothing_window", 30)
+            self.stabilizer = FrameStabilizer(smoothing_window=window)
+            log.info(
+                f"Frame stabilization enabled for '{camera_id}' "
+                f"(window={window})"
+            )
+        else:
+            self.stabilizer = None
+
     def _claim_source(self, source: int) -> bool:
         with self._claim_lock:
             if source in self._claimed_sources:
@@ -60,18 +72,6 @@ class CameraIngestion:
 
         cap.release()
         return None
-
-        # Optional frame stabilization
-        stab_cfg = self.config.get("pipeline", {}).get("stabilization", {})
-        if stab_cfg.get("enabled", False):
-            window = stab_cfg.get("smoothing_window", 30)
-            self.stabilizer = FrameStabilizer(smoothing_window=window)
-            log.info(
-                f"Frame stabilization enabled for '{camera_id}' "
-                f"(window={window})"
-            )
-        else:
-            self.stabilizer = None
 
     def open(self):
         """Open the camera device for reading.

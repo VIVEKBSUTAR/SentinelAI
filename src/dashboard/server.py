@@ -52,7 +52,8 @@ if static_dir.exists():
 
 def run_server(host="0.0.0.0", port=8000):
     """Run the FastAPI server."""
-    log.info(f"Starting Sentinel AI Dashboard on http://{host}:{port}")
+    display_host = "localhost" if host in ("0.0.0.0", "::") else host
+    log.info(f"Starting Sentinel AI Dashboard on http://{display_host}:{port}")
     config = uvicorn.Config(app, host=host, port=port, log_level="warning")
     server = uvicorn.Server(config)
     # Disable signal handlers because they crash when running in a background thread

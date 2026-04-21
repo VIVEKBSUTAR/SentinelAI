@@ -6,20 +6,20 @@ cameras:
   sony:
     source: 1
     type: usb
-    enabled: false
+    enabled: true
 
 pipeline:
-  target_fps: 12
+  target_fps: 8                  # Reduced from 12. Restore to 12 when GPU available
   detection_interval:
-    min: 2
-    max: 6
-    default: 3
+    min: 4                       # Reduced from 2. Restore to 2 when GPU available
+    max: 12                      # Increased from 6. Restore to 6 when GPU available
+    default: 6                   # Increased from 3. Restore to 3 when GPU available
   fps_hysteresis: 2.0
   adjust_cooldown_sec: 3.0
-  event_eval_interval: 3    # evaluate event rules every N frames
+  event_eval_interval: 6         # Increased from 3. Restore to 3 when GPU available
   stabilization:
-    enabled: true
-    smoothing_window: 30     # frames over which to smooth camera trajectory
+    enabled: false               # Disabled for CPU. Re-enable when GPU available
+    smoothing_window: 30
 
 detection:
   model: yolov8n.pt
