@@ -54,11 +54,12 @@ class FrameStabilizer:
         intentional camera movement.  ``30`` is a good starting point.
     """
 
-    def __init__(self, smoothing_window: int = 30):
+    def __init__(self, smoothing_window: int = 30, max_correction: float = 20.0):
         if smoothing_window < 1:
             raise ValueError("smoothing_window must be >= 1")
 
         self.smoothing_window = smoothing_window
+        self.max_correction = max_correction  # max pixels of correction per axis
 
         # Previous grayscale frame for optical-flow computation.
         self._prev_gray = None
@@ -139,6 +140,12 @@ class FrameStabilizer:
         corr_x = smooth_x - self._trajectory_x
         corr_y = smooth_y - self._trajectory_y
         corr_a = smooth_a - self._trajectory_a
+
+        # Clamp corrections to prevent over-correction from wind/bumps
+        mc = self.max_correction
+        corr_x = max(-mc, min(mc, corr_x))
+        corr_y = max(-mc, min(mc, corr_y))
+        corr_a = max(-0.02, min(0.02, corr_a))  # ~1 degree max rotation
 
         stabilized = self._apply_transform(frame, corr_x, corr_y, corr_a)
 

@@ -52,11 +52,20 @@ class CameraIngestion:
             self._claimed_source = None
 
     def _open_source(self, source: int):
-        # AVFoundation is the most reliable backend on macOS for camera capture.
-        cap = cv2.VideoCapture(source, cv2.CAP_AVFOUNDATION)
-        if not cap.isOpened():
-            cap.release()
-            cap = cv2.VideoCapture(source)
+        import sys
+        if sys.platform == "win32":
+            # DirectShow is typically the most reliable backend on Windows
+            cap = cv2.VideoCapture(source, cv2.CAP_DSHOW)
+            if not cap.isOpened():
+                cap.release()
+                cap = cv2.VideoCapture(source)
+        else:
+            # AVFoundation is the most reliable backend on macOS for camera capture.
+            cap = cv2.VideoCapture(source, cv2.CAP_AVFOUNDATION)
+            if not cap.isOpened():
+                cap.release()
+                cap = cv2.VideoCapture(source)
+                
         if not cap.isOpened():
             cap.release()
             return None

@@ -63,6 +63,7 @@ class ZoneIntrusionRule(BaseEventRule):
 
                 if _point_in_polygon(cx, cy, polygon):
                     self.alerted[key] = True
+                    track_manager.mark_suspicious(track.track_id)
                     events.append(
                         Event(
                             event_type="zone_intrusion",

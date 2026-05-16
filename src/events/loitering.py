@@ -50,6 +50,7 @@ class LoiteringRule(BaseEventRule):
 
             if displacement < self.distance_threshold:
                 self.alerted_tracks.add(track_id)
+                track_manager.mark_suspicious(track_id)
                 events.append(
                     Event(
                         event_type="loitering",

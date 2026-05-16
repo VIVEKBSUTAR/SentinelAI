@@ -21,7 +21,8 @@ class PersonCountRule(BaseEventRule):
         if now - self.last_emitted < self.interval:
             return []
 
-        count = len(tracks)
+        person_tracks = [t for t in tracks if t.cls == "person"]
+        count = len(person_tracks)
         self.last_emitted = now
 
         return [
@@ -31,7 +32,7 @@ class PersonCountRule(BaseEventRule):
                 timestamp=now,
                 severity="info",
                 description=f"{count} person(s) detected",
-                track_ids=[t.track_id for t in tracks],
+                track_ids=[t.track_id for t in person_tracks],
                 metadata={"count": count},
             )
         ]

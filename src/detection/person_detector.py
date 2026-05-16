@@ -3,13 +3,25 @@ from src.core.models import Detection
 from src.core.bbox_utils import is_valid_bbox
 
 
+TARGET_CLASSES = {
+    0: "person",
+    24: "backpack",
+    25: "umbrella",
+    26: "handbag",
+    28: "suitcase",
+    41: "cup",
+    67: "cell phone",
+    73: "laptop",
+}
+
+
 class PersonDetector:
-    def __init__(self, model_path="yolov8n.pt", conf_thresh=0.3):
+    def __init__(self, model_path="yolov8m.pt", conf_thresh=0.5):
         self.model = YOLO(model_path)
         self.conf_thresh = conf_thresh
 
     def detect(self, frame_data):
-        results = self.model(frame_data.frame, verbose=False)
+        results = self.model(frame_data.frame, verbose=False, iou=0.3)
         detections = []
 
         for r in results:
@@ -21,7 +33,8 @@ class PersonDetector:
                 r.boxes.conf.cpu().numpy(),
                 r.boxes.cls.cpu().numpy(),
             ):
-                if int(cls) != 0 or conf < self.conf_thresh:
+                cls_id = int(cls)
+                if cls_id not in TARGET_CLASSES or conf < self.conf_thresh:
                     continue
 
                 # Clip bounding box to frame dimensions
@@ -36,7 +49,7 @@ class PersonDetector:
                     continue
 
                 detections.append(
-                    Detection(bbox=bbox, confidence=float(conf), cls="person")
+                    Detection(bbox=bbox, confidence=float(conf), cls=TARGET_CLASSES[cls_id])
                 )
 
         return detections

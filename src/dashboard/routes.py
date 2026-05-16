@@ -144,12 +144,9 @@ async def get_stats():
         etype = e.get("event_type", "unknown")
         type_counts[etype] = type_counts.get(etype, 0) + 1
 
-    # Sum person counts across active cameras
-    person_count = sum(
-        cam.get("person_count", 0)
-        for cam in (status.get("cameras") or {}).values()
-        if cam.get("active")
-    )
+    # Deduplicated person count across all cameras (same person seen by
+    # multiple cameras counts as 1)
+    person_count = dashboard_state.get_total_person_count()
 
     fps_values = [
         cam.get("fps", 0)

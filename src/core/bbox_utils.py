@@ -14,3 +14,20 @@ def is_valid_bbox(bbox, frame_width, frame_height, max_area_ratio=0.95):
         return False
 
     return True
+
+
+def bboxes_intersect(bbox1, bbox2, margin=50):
+    """Check if two bounding boxes intersect, optionally expanding bbox1 by margin."""
+    x1_min, y1_min, x1_max, y1_max = bbox1
+    x2_min, y2_min, x2_max, y2_max = bbox2
+
+    x1_min -= margin
+    y1_min -= margin
+    x1_max += margin
+    y1_max += margin
+
+    if x1_max < x2_min or x1_min > x2_max:
+        return False
+    if y1_max < y2_min or y1_min > y2_max:
+        return False
+    return True

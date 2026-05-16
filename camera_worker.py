@@ -9,6 +9,7 @@ from src.detection.person_detector import PersonDetector
 from src.tracking.tracker import Tracker
 from src.tracking.track_manager import TrackManager
 from src.events.event_engine import EventEngine
+from src.core.bbox_utils import bboxes_intersect
 
 
 def run_camera(camera_id: str):
@@ -52,7 +53,25 @@ def run_camera(camera_id: str):
             run_detection = frame_data.frame_id % detection_interval == 0
 
             if run_detection:
-                detections = detector.detect(frame_data)
+                raw_detections = detector.detect(frame_data)
+                
+                # Dynamic Object Tracking Logic
+                suspicious_bboxes = [
+                    manager.active[tid]["bboxes"][-1] 
+                    for tid in manager.suspicious_tracks 
+                    if tid in manager.active
+                ]
+                
+                detections = []
+                for d in raw_detections:
+                    if d.cls == "person":
+                        detections.append(d)
+                    else:
+                        for s_bbox in suspicious_bboxes:
+                            if bboxes_intersect(d.bbox, s_bbox, margin=100):
+                                detections.append(d)
+                                break
+
                 tracks = tracker.update(detections, frame_data.frame)
                 manager.update(tracks)
                 event_engine.evaluate(tracks, frame_data, manager)

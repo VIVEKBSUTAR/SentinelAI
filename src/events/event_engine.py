@@ -6,6 +6,7 @@ from src.events.zone_intrusion import ZoneIntrusionRule
 from src.events.crowd_formation import CrowdFormationRule
 from src.events.unusual_motion import UnusualMotionRule
 from src.events.abandoned_object import AbandonedObjectRule
+from src.events.threat_scorer import ThreatScorer
 
 log = setup_logger("event_engine")
 
@@ -15,6 +16,7 @@ class EventEngine:
 
     The engine is called each frame with the current pipeline state.
     It evaluates rules at a configurable interval to reduce overhead.
+    Integrates a ThreatScorer to detect compound threats.
     """
 
     def __init__(self, config=None, eval_interval=3):
@@ -27,6 +29,7 @@ class EventEngine:
         self.eval_interval = eval_interval
         self.rules = []
         self.event_log = []
+        self.threat_scorer = ThreatScorer()
 
         events_cfg = (config or {}).get("events", {})
         zones_cfg = (config or {}).get("zones", {})
@@ -78,6 +81,10 @@ class EventEngine:
             return []
 
         all_events = []
+        now = frame_data.timestamp
+
+        # Decay threat scores each evaluation cycle
+        self.threat_scorer.decay(now)
 
         for rule in self.rules:
             try:
@@ -85,6 +92,34 @@ class EventEngine:
                 for event in events:
                     self._log_event(event)
                     all_events.append(event)
+
+                    # Feed events into threat scorer for each associated track
+                    for tid in (event.track_ids or []):
+                        escalation = self.threat_scorer.record_event(
+                            tid, event.event_type, now
+                        )
+                        if escalation:
+                            # Emit a threat_escalation event
+                            esc_event = Event(
+                                event_type="threat_escalation",
+                                camera_id=frame_data.camera_id,
+                                timestamp=now,
+                                severity=escalation["severity"],
+                                description=(
+                                    f"Threat escalated to {escalation['level'].upper()} "
+                                    f"for person {tid} "
+                                    f"(score: {escalation['score']}, "
+                                    f"behaviors: {', '.join(escalation['events'])})"
+                                ),
+                                track_ids=[tid],
+                                metadata={
+                                    "threat_level": escalation["level"],
+                                    "threat_score": escalation["score"],
+                                    "contributing_events": escalation["events"],
+                                },
+                            )
+                            self._log_event(esc_event)
+                            all_events.append(esc_event)
             except Exception as e:
                 log.error(f"Rule '{rule.name}' failed: {e}")
 

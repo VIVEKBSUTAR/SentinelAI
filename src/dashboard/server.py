@@ -8,6 +8,7 @@ import asyncio
 from src.core.logger import setup_logger
 from src.dashboard.routes import router as api_router
 from src.dashboard.ws_manager import manager
+from src.dashboard.unity_bridge import unity_manager
 
 log = setup_logger("dashboard")
 
@@ -28,7 +29,9 @@ app.include_router(api_router)
 @app.on_event("startup")
 async def on_startup():
     # Keep a reference to uvicorn's event loop for cross-thread broadcasts.
-    manager.set_loop(asyncio.get_running_loop())
+    loop = asyncio.get_running_loop()
+    manager.set_loop(loop)
+    unity_manager.set_loop(loop)
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -43,6 +46,21 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         log.error(f"WebSocket error: {e}")
         manager.disconnect(websocket)
+
+@app.websocket("/ws/unity")
+async def unity_websocket(websocket: WebSocket):
+    """WebSocket endpoint for Unity 3D simulation."""
+    await unity_manager.connect(websocket)
+    log.info("Unity client connected")
+    try:
+        while True:
+            await websocket.receive_text()  # keep alive
+    except WebSocketDisconnect:
+        unity_manager.disconnect(websocket)
+        log.info("Unity client disconnected")
+    except Exception as e:
+        log.error(f"Unity WS error: {e}")
+        unity_manager.disconnect(websocket)
 
 # Mount static files after websocket route registration.
 # A root mount can otherwise shadow /ws and cause websocket handshake failures.

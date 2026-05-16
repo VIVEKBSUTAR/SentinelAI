@@ -112,6 +112,7 @@
             const knownTypes = [
                 'loitering', 'zone_intrusion', 'crowd_formation',
                 'unusual_motion', 'person_count', 'abandoned_object',
+                'threat_escalation',
             ];
             const typeContainer = $('#ev-type-checks');
             knownTypes.forEach(t => {
@@ -212,7 +213,28 @@
             const d = msg.data;
             state.cameraStatus[d.camera_id] = d;
             updateHudForCamera(d.camera_id);
+            // Update global person count if provided
+            if (d.global_person_count !== undefined) {
+                const el = $('#topbar-people');
+                if (el) el.textContent = d.global_person_count;
+            }
             // Update camera cards if cameras section is showing
+            if (state.currentSection === 'cameras') updateCameraCard(d.camera_id);
+        }
+        if (msg.type === 'resolution_change') {
+            const d = msg.data;
+            const mode = d.mode || 'unknown';
+            const icon = mode === 'enhanced' ? '⚡' : '⬇️';
+            const toastType = mode === 'enhanced' ? 'warning' : 'success';
+            showToast(
+                `${icon} Camera ${(d.camera_id || '').toUpperCase()}: Resolution ${mode.toUpperCase()} — ${d.reason || ''}`,
+                toastType,
+                6000  // show for 6 seconds
+            );
+            // Update camera status with resolution mode
+            if (state.cameraStatus[d.camera_id]) {
+                state.cameraStatus[d.camera_id].resolution_mode = mode;
+            }
             if (state.currentSection === 'cameras') updateCameraCard(d.camera_id);
         }
     }
@@ -442,6 +464,7 @@
                 <div class="cam-stat"><span class="cam-stat-val mono" id="cam-fps-${escapeHtml(camId)}">--</span><span class="cam-stat-lbl">FPS</span></div>
                 <div class="cam-stat"><span class="cam-stat-val mono" id="cam-persons-${escapeHtml(camId)}">0</span><span class="cam-stat-lbl">Persons</span></div>
                 <div class="cam-stat"><span class="cam-stat-val mono alert" id="cam-sus-${escapeHtml(camId)}">0</span><span class="cam-stat-lbl">Alerts</span></div>
+                <div class="cam-stat"><span class="cam-stat-val mono" id="cam-res-${escapeHtml(camId)}">NORMAL</span><span class="cam-stat-lbl">Resolution</span></div>
             </div>
             <div class="camera-card-actions">
                 <button class="btn btn-ghost btn-sm" onclick="window.sentinelNav('dashboard', '${escapeHtml(camId)}')">
@@ -475,6 +498,14 @@
             susEl.classList.toggle('alert', (st.suspicious_count || 0) > 0);
         }
         if (card) card.classList.toggle('camera-offline', !st.active);
+
+        // Resolution mode badge
+        const resEl = $(`#cam-res-${camId}`);
+        if (resEl) {
+            const mode = st.resolution_mode || 'normal';
+            resEl.textContent = mode.toUpperCase();
+            resEl.classList.toggle('enhanced', mode === 'enhanced');
+        }
     }
 
     // Expose global for inline onclick
@@ -809,7 +840,7 @@
     }
 
     // ─── Toast Notifications ──────────────────────────────────────────────────
-    function showToast(message, type = 'info') {
+    function showToast(message, type = 'info', duration = 3000) {
         const container = $('#toast-container');
         if (!container) return;
         const t = document.createElement('div');
@@ -817,7 +848,7 @@
         t.textContent = message;
         container.appendChild(t);
         setTimeout(() => t.classList.add('show'), 10);
-        setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 400); }, 3000);
+        setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 400); }, duration);
     }
 
     // ─── Utilities ────────────────────────────────────────────────────────────

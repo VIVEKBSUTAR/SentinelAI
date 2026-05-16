@@ -12,6 +12,8 @@ class DashboardState:
         self._frame_buffers = {}
         self._camera_person_counts: dict = {}   # camera_id → person count
         self._camera_suspicious: dict  = {}     # camera_id → suspicious track count
+        self._camera_person_ids: dict = {}      # camera_id → set of person IDs
+        self._camera_resolution: dict = {}      # camera_id → "normal" | "enhanced"
         self.system_start_time = time.time()
 
     # ── Events ───────────────────────────────────────────────────────────────
@@ -77,16 +79,20 @@ class DashboardState:
     # ── Camera status ────────────────────────────────────────────────────────
 
     def set_camera_status(self, camera_id, active, fps,
-                          person_count=0, suspicious_count=0):
+                          person_count=0, suspicious_count=0,
+                          person_ids=None, resolution_mode="normal"):
         with self._lock:
             self._pipeline_status.setdefault("cameras", {})[camera_id] = {
                 "active": bool(active),
                 "fps": float(fps),
                 "person_count": int(person_count),
                 "suspicious_count": int(suspicious_count),
+                "resolution_mode": resolution_mode,
             }
             self._camera_person_counts[camera_id] = int(person_count)
             self._camera_suspicious[camera_id] = int(suspicious_count)
+            self._camera_person_ids[camera_id] = set(person_ids or [])
+            self._camera_resolution[camera_id] = resolution_mode
 
     def get_pipeline_status(self):
         with self._lock:
@@ -95,8 +101,20 @@ class DashboardState:
             return {"cameras": cameras}
 
     def get_total_person_count(self):
+        """Return the number of UNIQUE persons across all cameras."""
         with self._lock:
-            return sum(self._camera_person_counts.values())
+            all_ids = set()
+            for ids in self._camera_person_ids.values():
+                all_ids.update(ids)
+            return len(all_ids)
+
+    def get_unique_person_ids(self) -> set:
+        """Return the union of all active person IDs across cameras."""
+        with self._lock:
+            all_ids = set()
+            for ids in self._camera_person_ids.values():
+                all_ids.update(ids)
+            return all_ids
 
     # ── Frame buffers ────────────────────────────────────────────────────────
 

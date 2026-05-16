@@ -66,6 +66,7 @@ class UnusualMotionRule(BaseEventRule):
 
             if speed > self.speed_threshold:
                 self.last_alerted[track_id] = now
+                track_manager.mark_suspicious(track_id)
                 events.append(
                     Event(
                         event_type="unusual_motion",

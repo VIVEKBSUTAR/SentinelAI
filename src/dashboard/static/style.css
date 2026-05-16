@@ -1544,6 +1544,18 @@ body {
 .toast.toast-success { border-left: 3px solid var(--success); color: var(--success); }
 .toast.toast-error   { border-left: 3px solid var(--critical); color: var(--critical); }
 .toast.toast-info    { border-left: 3px solid var(--info); color: var(--info); }
+.toast.toast-warning { border-left: 3px solid var(--warning); color: var(--warning); }
+
+/* Resolution mode badge */
+.cam-stat-val.enhanced {
+    color: var(--warning) !important;
+    animation: pulse-resolution 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-resolution {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
 
 /* ============================================================
    RESPONSIVE (updated)

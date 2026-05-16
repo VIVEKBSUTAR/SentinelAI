@@ -18,12 +18,12 @@ pipeline:
   adjust_cooldown_sec: 3.0
   event_eval_interval: 6         # Increased from 3. Restore to 3 when GPU available
   stabilization:
-    enabled: false               # Disabled for CPU. Re-enable when GPU available
-    smoothing_window: 30
+    enabled: true                # Enabled for road CCTV stability
+    smoothing_window: 15         # Good for outdoor with mild wind shake
 
 detection:
-  model: yolov8n.pt
-  confidence_threshold: 0.3
+  model: yolov8m.pt
+  confidence_threshold: 0.5
 
 events:
   person_count_interval: 5.0    # seconds between count reports

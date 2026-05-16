@@ -9,6 +9,11 @@ class TrackManager:
         self.camera_id = camera_id
         self.active = {}
         self.completed = {}
+        self.suspicious_tracks = set()
+
+    def mark_suspicious(self, track_id: int):
+        if track_id in self.active:
+            self.suspicious_tracks.add(track_id)
 
     def update(self, tracks):
         now = time.time()
@@ -41,6 +46,7 @@ class TrackManager:
             tr["end_time"] = now
             tr["duration"] = now - tr["start_time"]
             self.completed[tid] = tr
+            self.suspicious_tracks.discard(tid)
             log.info(
                 f"[TRACK END] camera={self.camera_id} id={tid} "
                 f"frames={tr['frames']} duration={tr['duration']:.1f}s"
